@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+logs/
+.env
+*.db
+*.db-journal
+service-account*.json
+fixtures/raw/
+# Private assignment brief, kept out of the public repo
+LinkedIn DM Lead Tracker Build Brief.pdf
