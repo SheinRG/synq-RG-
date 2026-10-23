@@ -1,0 +1,30 @@
+{
+  "account_id": "dfXlh46vQYCsMbVarumWlg",
+  "account_type": "LINKEDIN",
+  "account_info": {
+    "type": "LINKEDIN",
+    "feature": "classic",
+    "user_id": "ACoAAAcDMMQBODyLwZrRcgYhrkCafURGqva0U4E"
+  },
+  "event": "message_received",
+  "chat_id": "R8J-xM9WX7eoHLp6gSVtWQ",
+  "timestamp": "2026-10-24T14:05:41.000Z",
+  "webhook_name": "lead-tracker",
+  "message_id": "pQ7aZx_2RkWm4LwT9cVb1A",
+  "message": "Sure, happy to talk. Does Monday morning work?",
+  "sender": {
+    "attendee_id": "12Siz1Vcmfnke_Vai4Gg",
+    "attendee_name": "Bastien Unipile ",
+    "attendee_provider_id": "AA1212sqqsMQBODyLwZrRcgYhrkCafURGqva0U4E",
+    "attendee_profile_url": "https://www.linkedin.com/in/AA1212sqqsMQBODyLwZrRcgYhrkCafURGqva0U4E/"
+  },
+  "attendees": [
+    {
+      "attendee_id": "12Siz1Vcmfnke_Vai4Gg",
+      "attendee_name": "Bastien Unipile ",
+      "attendee_provider_id": "AA1212sqqsMQBODyLwZrRcgYhrkCafURGqva0U4E",
+      "attendee_profile_url": "https://www.linkedin.com/in/AA1212sqqsMQBODyLwZrRcgYhrkCafURGqva0U4E/"
+    }
+  ],
+  "attachments": []
+}
