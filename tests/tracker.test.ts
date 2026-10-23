@@ -182,3 +182,63 @@ describe("follow-up check", () => {
     expect(crm.get("L-0001")?.status).toBe("Not replied");
   });
 });
+
+describe("recovering from CRM failures and races", () => {
+  it("writes the full lead once the CRM is back, so an auto-added row keeps its name", async () => {
+    const ctx = setup();
+    const realUpsert = ctx.crm.upsertLead.bind(ctx.crm);
+    let failNext = 1;
+    ctx.crm.upsertLead = async (lead) => {
+      if (failNext-- > 0) throw new Error("429 quota");
+      return realUpsert(lead);
+    };
+    // The auto-add append fails; the status write right after it succeeds.
+    await ctx.deliver(fixture("message_received.outbound"));
+    expect(ctx.crm.get("L-0001")).toMatchObject({ name: "Bastien Unipile", providerId: LEAD_PROVIDER_ID, status: "Message sent" });
+  });
+
+  it("does not lose a failed status write when a later small write succeeds", async () => {
+    const ctx = await withManualLead();
+    await ctx.deliver(fixture("message_received.outbound"));
+    const realUpsert = ctx.crm.upsertLead.bind(ctx.crm);
+    ctx.crm.upsertLead = async () => {
+      throw new Error("timeout");
+    };
+    ctx.setNow("2026-10-24T13:52:31.000Z");
+    await ctx.deliver(fixture("message_read")); // Opened, but the write fails
+    ctx.crm.upsertLead = realUpsert;
+    await ctx.deliver(fixture("message_delivered")); // ignored by the engine, no write
+    await ctx.deliver({ ...fixture("message_received.inbound"), message_id: "r-late" }); // succeeds
+    expect(ctx.crm.get("L-0001")).toMatchObject({ status: "Replied", openedAt: "2026-10-24T13:52:31.000Z" });
+  });
+
+  it("never blanks a known name when the sheet row is missing it", async () => {
+    const ctx = await withManualLead();
+    const row = ctx.crm.get("L-0001")!;
+    row.name = "";
+    row.linkedinUrl = "";
+    await ctx.tracker.syncLeads();
+    expect(ctx.store.getLead("L-0001")).toMatchObject({ name: "Bastien", linkedinUrl: "https://www.linkedin.com/in/bastien-u/" });
+    // ...and repairs the sheet row.
+    expect(ctx.crm.get("L-0001")).toMatchObject({ name: "Bastien", linkedinUrl: "https://www.linkedin.com/in/bastien-u/" });
+  });
+
+  it("matches a DM to a row added moments before, instead of creating a duplicate", async () => {
+    const ctx = setup();
+    ctx.crm.addRow({ name: "Bastien", linkedinUrl: "https://www.linkedin.com/in/bastien-u/" });
+    ctx.unipile.profiles.set("bastien-u", { provider_id: LEAD_PROVIDER_ID });
+    // No sync has run yet when the first message arrives.
+    await ctx.deliver(fixture("message_received.outbound"));
+    expect(ctx.crm.leads).toHaveLength(1);
+    expect(ctx.crm.get("L-0001")).toMatchObject({ name: "Bastien", source: "Manual", status: "Message sent", chatId: CHAT_ID });
+  });
+
+  it("imports rows that already have a status instead of resetting them (lost database)", async () => {
+    const ctx = setup();
+    ctx.crm.addRow({ leadId: "L-0004", name: "Kept", status: "Replied", providerId: "ACoKept", replyCategory: "Interested" });
+    await ctx.tracker.syncLeads();
+    expect(ctx.crm.get("L-0004")).toMatchObject({ status: "Replied", replyCategory: "Interested" });
+    expect(ctx.store.getLead("L-0004")?.status).toBe("Replied");
+    expect(ctx.crm.events).toEqual([]);
+  });
+});

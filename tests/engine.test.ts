@@ -244,3 +244,14 @@ describe("snippet", () => {
     expect(snippet("x".repeat(150))).toHaveLength(100);
   });
 });
+
+describe("receipt timing", () => {
+  it("trusts the known send time of the message over the receive time", () => {
+    // Server clock a little behind Unipile's: the receipt looks older than the
+    // message, but we know it is for the latest message, so it counts.
+    const t = nextState(lead({ status: "Message sent", lastOutboundAt: T1 }), {
+      type: "read", at: T0, messageId: "m1", messageSentAt: T1,
+    });
+    expect(t.status).toBe("Opened");
+  });
+});

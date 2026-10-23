@@ -26,13 +26,14 @@ export interface TrackerDeps {
 }
 
 const MAX_RESOLVE_ATTEMPTS = 3;
+const RESOLVE_BACKOFF_MS = 30 * 60 * 1000;
 
 export class LeadTracker {
   private queue: Promise<unknown> = Promise.resolve();
   private background = new Set<Promise<unknown>>();
   /** Leads whose last CRM write failed. Retried on the next sync. */
   private unsynced = new Set<string>();
-  private resolveAttempts = new Map<string, number>();
+  private resolveAttempts = new Map<string, { count: number; lastAt: number }>();
   private now: () => string;
   private log: (msg: string) => void;
 
@@ -100,16 +101,25 @@ export class LeadTracker {
       return;
     }
 
-    let lead =
+    const findLead = () =>
       store.findLeadByChatId(event.chatId) ??
       (event.counterpart?.providerId ? store.findLeadByProviderId(event.counterpart.providerId) : undefined);
+    let lead = findLead();
 
     if (!lead) {
       if (!event.counterpart?.providerId) {
         this.log(`[webhook] message in unknown chat ${event.chatId} with no attendee info, skipped`);
         return;
       }
-      lead = await this.autoAddLead(event.chatId, event.counterpart);
+      // The usual flow is "add a row, then send the DM", which can beat the
+      // periodic sync. Pick up and resolve new rows first so we match the
+      // person's row instead of creating a duplicate.
+      try {
+        await this.processSync();
+      } catch (err) {
+        this.log(`[lead] sync before auto-add failed: ${(err as Error).message}`);
+      }
+      lead = findLead() ?? (await this.autoAddLead(event.chatId, event.counterpart));
     }
 
     if (lead.chatId !== event.chatId) {
@@ -264,34 +274,49 @@ export class LeadTracker {
     for (const row of crmLeads) {
       const local = store.getLead(row.leadId);
       if (!local) {
-        await this.addManualLead(row);
+        await this.addLeadFromCrm(row);
         continue;
       }
-      // Humans own Name, Company and LinkedIn URL. Copy any edits.
-      const urlChanged = row.linkedinUrl !== local.linkedinUrl;
-      if (urlChanged || row.name !== local.name || row.company !== local.company) {
-        const updated = {
+      // Humans own Name, Company and LinkedIn URL. Copy their edits, but never
+      // replace something we know with a blank: a blank usually means the row
+      // was recreated by a partial write, not that someone cleared it.
+      const name = row.name || local.name;
+      const company = row.company || local.company;
+      const linkedinUrl = row.linkedinUrl || local.linkedinUrl;
+      const urlChanged = linkedinUrl !== local.linkedinUrl;
+      if (urlChanged || name !== local.name || company !== local.company) {
+        store.saveLead({
           ...local,
-          name: row.name,
-          company: row.company,
-          linkedinUrl: row.linkedinUrl,
+          name,
+          company,
+          linkedinUrl,
           providerId: urlChanged && local.source === "Manual" ? "" : local.providerId,
-        };
-        store.saveLead(updated);
-        if (urlChanged) this.resolveAttempts.delete(updated.leadId);
+        });
+        if (urlChanged) this.resolveAttempts.delete(local.leadId);
       }
+      // The sheet row is missing details we have (for example after a failed
+      // write); push the full lead again.
+      if ((!row.name && local.name) || (!row.linkedinUrl && local.linkedinUrl)) this.unsynced.add(local.leadId);
+
       const current = store.getLead(row.leadId)!;
       if (!current.providerId && current.linkedinUrl) await this.resolveProviderId(current);
     }
 
     for (const leadId of [...this.unsynced]) {
-      const lead = store.getLead(leadId);
-      if (lead) await this.writeCrm(leadId, serverFields(lead));
+      if (store.getLead(leadId)) await this.writeCrm(leadId, {});
     }
   }
 
-  private async addManualLead(row: Lead): Promise<void> {
-    const base: Lead = { ...row, status: "", source: row.source || "Manual" };
+  private async addLeadFromCrm(row: Lead): Promise<void> {
+    if (row.status !== "") {
+      // A row the server wrote before (for example the local database was
+      // reset). Import it as it is; resetting it would move the status back.
+      this.deps.store.saveLead({ ...row, source: row.source || "Manual" });
+      this.log(`[lead] ${row.leadId} imported from CRM with status ${row.status}`);
+      if (!row.providerId && row.linkedinUrl) await this.resolveProviderId(row);
+      return;
+    }
+    const base: Lead = { ...row, source: row.source || "Manual" };
     const t = nextState(base, { type: "lead_added" }, this.deps.rules);
     const lead: Lead = { ...base, ...t.fieldUpdates, updatedAt: this.now() };
     this.deps.store.saveLead(lead);
@@ -302,20 +327,24 @@ export class LeadTracker {
   }
 
   private async resolveProviderId(lead: Lead): Promise<void> {
-    const attempts = this.resolveAttempts.get(lead.leadId) ?? 0;
+    const nowMs = Date.parse(this.now());
+    const previous = this.resolveAttempts.get(lead.leadId);
+    // After a few failures, back off for a while instead of giving up forever.
+    const attempts = previous && nowMs - previous.lastAt < RESOLVE_BACKOFF_MS ? previous.count : 0;
     if (attempts >= MAX_RESOLVE_ATTEMPTS) return;
     const slug = linkedinSlug(lead.linkedinUrl);
     if (!slug) {
       this.log(`[lead] ${lead.leadId} has no usable LinkedIn URL (${lead.linkedinUrl})`);
-      this.resolveAttempts.set(lead.leadId, MAX_RESOLVE_ATTEMPTS);
+      this.resolveAttempts.set(lead.leadId, { count: MAX_RESOLVE_ATTEMPTS, lastAt: nowMs });
       return;
     }
-    this.resolveAttempts.set(lead.leadId, attempts + 1);
+    this.resolveAttempts.set(lead.leadId, { count: attempts + 1, lastAt: nowMs });
     try {
       const profile = await this.deps.unipile.getProfile(slug);
       const duplicate = this.deps.store.findLeadByProviderId(profile.provider_id);
       if (duplicate && duplicate.leadId !== lead.leadId) {
-        this.log(`[lead] ${lead.leadId} is the same person as ${duplicate.leadId}; keeping both, tracking ${duplicate.leadId}`);
+        this.log(`[lead] ${lead.leadId} is the same person as ${duplicate.leadId}; tracking ${duplicate.leadId}`);
+        this.resolveAttempts.set(lead.leadId, { count: MAX_RESOLVE_ATTEMPTS, lastAt: nowMs });
         return;
       }
       const updated = { ...lead, providerId: profile.provider_id, updatedAt: this.now() };
@@ -329,10 +358,18 @@ export class LeadTracker {
 
   // ---- CRM writes -------------------------------------------------------
 
+  /**
+   * Writes changed fields to the CRM. If an earlier write for this lead
+   * failed, the CRM may be missing more than this delta (even the whole row),
+   * so the full lead is written instead, and the lead only counts as synced
+   * once that full write succeeds.
+   */
   private async writeCrm(leadId: string, fields: Partial<Lead>): Promise<void> {
+    const needsFullWrite = this.unsynced.has(leadId);
+    const payload = needsFullWrite ? (this.deps.store.getLead(leadId) ?? fields) : fields;
     try {
-      await this.deps.crm.upsertLead({ ...fields, leadId });
-      this.unsynced.delete(leadId);
+      await this.deps.crm.upsertLead({ ...payload, leadId });
+      if (needsFullWrite) this.unsynced.delete(leadId);
     } catch (err) {
       // The local store already has the change; the next sync retries the write.
       this.unsynced.add(leadId);
@@ -371,8 +408,3 @@ export class LeadTracker {
   }
 }
 
-/** Everything the server owns, for re-pushing a lead after a failed write. */
-function serverFields(lead: Lead): Partial<Lead> {
-  const { name: _n, company: _c, linkedinUrl: _u, ...rest } = lead;
-  return rest;
-}

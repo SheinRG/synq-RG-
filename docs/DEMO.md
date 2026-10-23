@@ -27,7 +27,7 @@ The video matters most. Aim for 3 to 5 minutes, Sheet and LinkedIn side by side.
 | 2:45 | DM friend B, who does not reply | Row B goes to Message sent. |
 | 3:15 | Wait for the minute tick (or `POST /admin/follow-up-check`) | Row B flips to Follow-up due with a drafted follow-up. Nothing was sent. |
 | 3:45 | Events and Summary tabs | Every transition is logged; open and reply rates update from formulas. |
-| 4:15 | `src/crm/adapter.ts` and `npm test` | Four methods to plug in HubSpot; 85 tests. Limitations in one breath. |
+| 4:15 | `src/crm/adapter.ts` and `npm test` | Four methods to plug in HubSpot; 98 tests. Limitations in one breath. |
 
 ## Trigger the follow-up check on demand
 

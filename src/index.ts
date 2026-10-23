@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   const { env } = config;
 
   const store = new Store(env.DATABASE_PATH);
-  const crm = new GoogleSheetsCrm(env.SHEET_ID, loadServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON), {
+  const crm = GoogleSheetsCrm.fromServiceAccount(env.SHEET_ID, loadServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON), {
     next: () => store.nextLeadId(),
     bumpTo: (n) => store.bumpLeadSequence(n),
   });

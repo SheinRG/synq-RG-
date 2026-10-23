@@ -101,8 +101,8 @@ webhook arriving twice. None of them move the status backwards.
   Volume stays low and the demo only uses friends.
 * **The Unipile trial is 7 days.** Production needs a paid plan or the Chrome
   extension route.
-* **Google Sheets has rate limits.** Writes are batched, one call per status
-  change. A real CRM replaces the sheet at scale.
+* **Google Sheets has rate limits.** Each status change is a few calls (find
+  the row, one batched write, one log line). A real CRM replaces the sheet at scale.
 * **Only conversations after the account was connected are tracked.**
 * **Payload details.** Unipile documents one example webhook payload. The
   parser follows it and tolerates extra or missing fields. Real captures from
@@ -121,8 +121,9 @@ the method by method mapping.
 
 * A Node and TypeScript server that turns LinkedIn DM activity into live CRM
   status, with AI labels on replies and drafted follow-ups.
-* 85 automated tests covering the status rules, payload parsing, the full
-  pipeline, the AI fallback and the HTTP layer.
+* 98 automated tests covering the status rules, payload parsing, the full
+  pipeline, recovery from failed Sheet writes, the Sheets adapter, the AI
+  fallback and the HTTP layer.
 * A live Google Sheet with Leads, Events and Summary tabs.
 * A demo video showing a row go from Message sent to Opened to Replied with an
   AI label, and an unanswered lead flip to Follow-up due.

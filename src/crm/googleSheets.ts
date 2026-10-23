@@ -4,7 +4,7 @@
 // Rows are always found by Lead ID, never by a remembered row number, so
 // people can sort or insert rows while the server is running. The one
 // exception is giving a brand new human-added row its Lead ID, which is done
-// right after reading the sheet. All values are written RAW so message text
+// right after reading the sheet and only if the row is still where it was. All values are written RAW so message text
 // that starts with "=" can never become a formula.
 
 import fs from "node:fs";
@@ -46,48 +46,75 @@ export interface LeadIdAllocator {
 }
 
 export class GoogleSheetsCrm implements CrmAdapter {
-  private sheets: sheets_v4.Sheets;
-
   constructor(
     private spreadsheetId: string,
-    credentials: object,
     private ids: LeadIdAllocator,
-  ) {
+    private sheets: sheets_v4.Sheets,
+  ) {}
+
+  static fromServiceAccount(spreadsheetId: string, credentials: object, ids: LeadIdAllocator): GoogleSheetsCrm {
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
-    this.sheets = google.sheets({ version: "v4", auth });
+    // Every write happens inside the event queue, so a hung request must not
+    // hold it for long.
+    return new GoogleSheetsCrm(spreadsheetId, ids, google.sheets({ version: "v4", auth, timeout: 15_000 }));
   }
 
   async listLeads(): Promise<Lead[]> {
     const rows = await this.readRange(`${LEADS_TAB}!A1:ZZ`);
     const columns = this.columnIndex(rows[0] ?? []);
-    const idCol = columns.get("leadId")!;
-    const sourceCol = columns.get("source");
 
-    const existingMax = Math.max(0, ...rows.slice(1).map((r) => leadNumber(r[idCol] ?? "")));
+    const existingMax = Math.max(0, ...rows.slice(1).map((r) => leadNumber(r[columns.get("leadId")!] ?? "")));
     this.ids.bumpTo(existingMax);
 
     const leads: Lead[] = [];
-    const newIdWrites: sheets_v4.Schema$ValueRange[] = [];
+    const newRows: { rowNumber: number; lead: Lead }[] = [];
     rows.slice(1).forEach((row, i) => {
       const lead = this.rowToLead(row, columns);
       if (!lead.leadId && !lead.name && !lead.linkedinUrl) return; // blank row
       if (!lead.leadId) {
-        lead.leadId = this.ids.next();
-        lead.source = lead.source || "Manual";
-        const rowNumber = i + 2; // +1 for the header, +1 because sheets count from 1
-        newIdWrites.push({ range: `${LEADS_TAB}!${columnLetter(idCol)}${rowNumber}`, values: [[lead.leadId]] });
-        if (sourceCol !== undefined) {
-          newIdWrites.push({ range: `${LEADS_TAB}!${columnLetter(sourceCol)}${rowNumber}`, values: [[lead.source]] });
-        }
+        // +1 for the header, +1 because sheets count rows from 1
+        newRows.push({ rowNumber: i + 2, lead });
+        return;
       }
       leads.push(lead);
     });
-
-    if (newIdWrites.length) await this.batchWrite(newIdWrites);
+    if (newRows.length) leads.push(...(await this.assignLeadIds(newRows, columns)));
     return leads;
+  }
+
+  /**
+   * Gives new human-added rows a Lead ID. This is the one place we write by
+   * row number, so we read the sheet again first and only write to rows that
+   * still hold the same, still id-less lead. A row that moved in between is
+   * simply picked up on the next sync.
+   */
+  private async assignLeadIds(
+    newRows: { rowNumber: number; lead: Lead }[],
+    columns: Map<keyof Lead, number>,
+  ): Promise<Lead[]> {
+    const fresh = await this.readRange(`${LEADS_TAB}!A1:ZZ`);
+    const idCol = columns.get("leadId")!;
+    const sourceCol = columns.get("source");
+    const writes: sheets_v4.Schema$ValueRange[] = [];
+    const assigned: Lead[] = [];
+
+    for (const { rowNumber, lead } of newRows) {
+      const current = this.rowToLead(fresh[rowNumber - 1] ?? [], columns);
+      const unchanged = !current.leadId && current.name === lead.name && current.linkedinUrl === lead.linkedinUrl;
+      if (!unchanged) continue;
+      lead.leadId = this.ids.next();
+      lead.source = lead.source || "Manual";
+      writes.push({ range: `${LEADS_TAB}!${columnLetter(idCol)}${rowNumber}`, values: [[lead.leadId]] });
+      if (sourceCol !== undefined) {
+        writes.push({ range: `${LEADS_TAB}!${columnLetter(sourceCol)}${rowNumber}`, values: [[lead.source]] });
+      }
+      assigned.push(lead);
+    }
+    if (writes.length) await this.batchWrite(writes);
+    return assigned;
   }
 
   async upsertLead(lead: Partial<Lead> & { leadId: string }): Promise<void> {

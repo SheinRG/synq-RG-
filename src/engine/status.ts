@@ -158,8 +158,9 @@ function onDailyCheck(lead: Lead, now: string, rules: Rules): Transition {
 /** A delivery or read receipt that belongs to a message older than our latest outbound. */
 function refersToOlderMessage(lead: Lead, event: { at: string; messageSentAt?: string }): boolean {
   if (!lead.lastOutboundAt) return false;
-  if (event.messageSentAt && isBefore(event.messageSentAt, lead.lastOutboundAt)) return true;
-  // A receipt that happened before our latest message was sent cannot be about it.
+  // When we know which message the receipt is for, that alone decides.
+  if (event.messageSentAt) return isBefore(event.messageSentAt, lead.lastOutboundAt);
+  // Otherwise: a receipt that happened before our latest message was sent cannot be about it.
   return isBefore(event.at, lead.lastOutboundAt);
 }
 

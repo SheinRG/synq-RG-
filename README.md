@@ -72,7 +72,7 @@ You need Node 20 or newer.
 ```bash
 npm install
 cp .env.example .env    # then fill it in, see below
-npm test                # 85 tests, no network needed
+npm test                # 98 tests, no network needed
 ```
 
 ### 1. Unipile
@@ -231,8 +231,12 @@ docs/                   process doc and demo runbook
   Keep volume low. The demo only uses friends.
 * **The Unipile trial lasts 7 days.** Production needs a paid plan, or the
   Chrome extension route described in the process doc.
-* **Google Sheets has rate limits** (around 60 writes a minute per user). Each
-  status change is one batched write. A real CRM replaces the sheet at scale.
+* **Google Sheets has rate limits** (around 60 requests a minute per user).
+  Each status change costs about three calls: one read to find the row by
+  Lead ID, one batched write for all changed cells, and one append to Events.
+  That is plenty for a sales team's DM volume, but a real CRM replaces the
+  sheet at scale. If a write fails, the server keeps the change and pushes
+  the full row again on the next sync.
 * **Only new messages are tracked.** Unipile does not send webhooks for
   conversations that happened before the account was connected.
 * **Webhook payloads come from the docs.** Unipile documents one example
