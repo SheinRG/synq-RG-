@@ -4,19 +4,29 @@ The video matters most. Aim for 3 to 5 minutes, Sheet and LinkedIn side by side.
 
 ## Before recording
 
+Use the Sheet you already have; there is no need for a new one.
+
 1. `npm test` is green.
-2. The Sheet is set up (**Lead Tracker > Set up sheet**), the AI key is set,
-   and the web app is deployed.
-3. Click **Lead Tracker > Demo mode on**. In Script Properties, set
-   `NOT_REPLIED_AFTER_DAYS` to `2` (2 minutes in demo mode).
-4. The extension is loaded, the URL is saved, and **Test connection** shows the
-   Sheet's name.
-5. Put 2 or 3 friends in the Leads tab (name, company, LinkedIn URL only). They
-   get Lead IDs and `Not contacted` within a few seconds, or on the next sync.
-6. Open https://www.linkedin.com/messaging/ once before recording, so the
-   extension records its starting point. If you already have a chat with a
-   friend, open it once too, so the extension learns its thread.
-7. Ask friend A to keep read receipts on and be ready to open your message and
+2. The latest `apps-script/Code.js` is pasted into the Apps Script editor and
+   redeployed: **Deploy > Manage deployments > Edit > New version**. The URL
+   stays the same.
+3. Clear the test data: delete rows 2 and below in **Leads** and **Events**,
+   delete **Sheet1**, then run **Lead Tracker > Set up sheet** to rewrite the
+   Summary formulas.
+4. **Lead Tracker > Set AI key** has your key, and **Lead Tracker > Demo mode
+   on** is clicked. In Script Properties, set `NOT_REPLIED_AFTER_DAYS` to `2`
+   (2 minutes in demo mode).
+5. Reload the extension in `chrome://extensions`, refresh LinkedIn Messages,
+   then in the popup click **Start fresh from now**. Old chats become the
+   starting point and will not come back as rows.
+6. In the popup, **Test connection** shows the Sheet's name and **Check this
+   page** shows **Selector health: All good**. If it shows missing selectors,
+   refresh the LinkedIn tab and check again.
+7. Put 2 friends in the Leads tab: Name exactly as LinkedIn shows it, Company,
+   LinkedIn URL. They get Lead IDs and `Not contacted` within a few seconds.
+8. If you already have a chat with a friend, open it once so the extension
+   learns its thread.
+9. Ask friend A to keep read receipts on and be ready to open your message and
    reply. Friend B should not reply.
 
 ## Script
@@ -40,8 +50,9 @@ The video matters most. Aim for 3 to 5 minutes, Sheet and LinkedIn side by side.
 * The row never matches: check the LinkedIn URL in the row looks like
   `linkedin.com/in/<name>`, or open the thread once so the extension can read
   the profile link.
-* Counts in **Check this page** are zero: LinkedIn changed its markup; fix the
-  selector in `extension/selectors.js` and reload the extension.
+* **Check this page** shows missing selectors: LinkedIn served a different
+  build of the page. Refresh the tab; if it persists, the selectors in
+  `extension/selectors.js` need updating.
 * Opened never shows: the friend has read receipts off, or the thread was not
   open when the Seen marker appeared. Open the thread.
 * Category says Unclassified: check the key with **Lead Tracker > Set AI key**

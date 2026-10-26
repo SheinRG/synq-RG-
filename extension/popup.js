@@ -231,5 +231,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.lastSync) renderLastSync(changes.lastSync.newValue);
 });
 
+// Forget which conversations count as new activity, so everything in the inbox
+// right now becomes the starting point again (as on install). Thread ids
+// learned so far are kept. Handy after clearing test rows from the Sheet.
+document.getElementById("startFresh").addEventListener("click", async () => {
+  await chrome.storage.local.remove(["freshStateV2", "pending"]);
+  const status = document.getElementById("startFreshStatus");
+  status.textContent = " Done. Conversations in your inbox now are the new starting point.";
+});
+
 loadUrl();
 chrome.storage.local.get("lastSync").then(({ lastSync }) => renderLastSync(lastSync));
