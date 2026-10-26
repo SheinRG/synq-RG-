@@ -4,166 +4,126 @@ Raghav Gangwar, October 2026
 
 ## The problem
 
-Salespeople message leads on LinkedIn, but nobody keeps the CRM up to date
-with what happened next. Did they open it? Did they reply, and was the reply a
-yes or a no? Who needs a nudge today?
+Salespeople message leads on LinkedIn, but the CRM never hears what happened
+next. Did the lead open it? Reply? Say yes or no? Who needs a nudge today?
 
-The goal was a LinkedIn automation that plugs into a CRM and keeps each lead's
-status current (message sent, opened, replied, not replied) without changing
-how salespeople work. They keep using LinkedIn as usual. The CRM updates itself.
+The goal: keep each lead's status in the CRM current (message sent, opened,
+replied, not replied) without changing how salespeople work. They use LinkedIn
+as usual, and the CRM updates itself.
 
 ## Why the official LinkedIn API does not work
 
-LinkedIn's messaging API is limited to approved partners and there is no public
-way to apply. There is no self serve way to read or send DMs, so any working
-solution has to read the inbox some other way.
+LinkedIn's messaging API is limited to approved partners, with no public way to
+apply. Nobody can read DMs through it on their own, so a working solution has
+to read the inbox some other way.
 
 ## Options compared
 
-| Option | Detects Opened | Detects Replied | Account risk | Verdict |
+| Option | Opened | Replied | Account risk | Verdict |
 | --- | --- | --- | --- | --- |
-| Unipile API | Yes | Yes, real time | Medium | Built first, then dropped (see below) |
+| Unipile API | Yes | Yes, real time | Medium | Built first, then dropped |
 | Chrome extension reading our own inbox | Yes, via the Seen marker | Yes | Lower | **Chosen** |
-| Parsing LinkedIn notification emails in Gmail | No | Mostly | None | Zero risk fallback |
-| Outreach tools (HeyReach, Expandi) plus Zapier | Yes | Yes | Medium | Rejected: configuring, not building |
-| Headless Playwright bot | Yes | Yes | High | Rejected: ban risk |
-| Official LinkedIn API | No | No | n/a | Not possible |
+| LinkedIn notification emails in Gmail | No | Mostly | None | Zero risk fallback |
+| Outreach tools (HeyReach, Expandi) plus Zapier | Yes | Yes | Medium | Configuring, not building |
+| Headless Playwright bot | Yes | Yes | High | Ban risk |
 
-## The pivot: Unipile first, then a Chrome extension
+## The pivot
 
-The first version used Unipile, a service that connects a real LinkedIn account
-and sends webhooks for new messages, read receipts and deliveries. I built it
-fully: a Node and TypeScript server with webhook handling, a SQLite event
-store, a status engine, a Grok classifier and a Google Sheets adapter, with 98
-tests. It is kept in the repo history under the `unipile-version` tag.
+I first built the planned version on Unipile, a service that connects a
+LinkedIn account and sends webhooks: a Node server, a SQLite event store, the
+status engine, a Grok classifier and a Sheets adapter, with 98 tests (kept under
+the `unipile-version` git tag). Two things changed my mind. The Unipile account
+was suspended soon after first use, which is exactly the risk the brief warned
+about. And setup needed about 11 keys, ngrok and an always-on server.
 
-Two things changed my mind:
-
-1. **The Unipile account was flagged and suspended soon after first use.** That
-   is exactly the account risk the brief warned about, and it showed up on day one.
-2. **Setup was too heavy for a reviewer.** Running it meant about 11 keys and
-   settings: a Unipile trial, a Google Cloud service account, ngrok, a webhook
-   registration, and a server that has to stay up.
-
-The Chrome extension was already the planned backup, so I switched to it. It
-reads the LinkedIn Messages page the user already has open and never acts on
-LinkedIn by itself. The backend moved into Google Apps Script, the free
-JavaScript that lives inside the Sheet. There is no server and no service
-account. Setup went from about 11 values to 2: the Apps Script web app URL
-pasted into the extension, and the Grok key.
-
-| | Unipile version | Extension version |
-| --- | --- | --- |
-| Keys and settings | About 11 | 2 |
-| Server to run | Yes, plus ngrok | No |
-| Account risk | Got suspended | Lower: reads our own screen, never sends |
-| Cost | Trial, then paid | Free |
-| Reviewer setup | Long | Load extension, paste URL |
-
-The most valuable part of the first version carried over: the status engine.
-It is the same pure `nextState(lead, event)` function with the same guards
-and tests, now inside Apps Script.
+So I moved to the backup plan: a Chrome extension that reads the LinkedIn
+Messages page the user already has open, and a Google Apps Script inside the
+Sheet as the backend. No server, no service account, and setup is two values:
+the script's web app URL and the AI key. The status engine carried over as is.
 
 ## Architecture
 
 ```
 LinkedIn Messages page (open in Chrome)
-   |  content script reads what is on screen: names, previews, open thread, Seen marker
+   |  extension reads names, previews, the open thread and the Seen marker
    v
-Chrome extension  --POST JSON-->  Google Apps Script web app (bound to the Sheet)
-                                    |- observe()      compares the screen with the row, finds new messages
-                                    |- nextState()    pure status rules, unit tested
-                                    |- CRM adapter    Leads, Events, Summary tabs
-                                    |- classifier     Grok labels replies, drafts follow-ups
-                                    '- timer          Follow-up due / Not replied checks
+Chrome extension  --POST JSON-->  Google Apps Script web app (inside the Sheet)
+                                    |- observe()    compares the screen with the row
+                                    |- nextState()  pure status rules, unit tested
+                                    |- CRM adapter  Leads, Events, Summary tabs
+                                    |- classifier   Grok labels replies, drafts follow-ups
+                                    '- timer        Follow-up due / Not replied
 ```
 
-A few choices worth calling out:
+Choices worth calling out:
 
 * **Compare, don't count.** The extension sends what it sees, not events. The
-  script compares the latest message on screen with what the row already says,
-  and only a real difference becomes an event. Sending the same screen twice
-  changes nothing, which replaces the webhook dedupe of the first version.
-* **One clock.** LinkedIn shows times like "2:15 PM", which are too coarse to
-  order messages safely. Every event uses the time the extension saw it, so
-  a reply can never look older than the message it answers.
-* **The list and the open thread agree.** The conversation list shows a
-  shortened preview while the open thread shows the full text. Messages are
-  compared on their opening characters so the same message is never counted twice.
-* **The AI never blocks a status change.** The row moves to Replied first.
-  The label lands a moment later. If Grok fails or returns bad JSON, the
-  category is Unclassified and everything carries on.
-* **Tracking starts at install.** On its first run the extension records what
-  is already in the inbox. An old chat with someone in the Sheet becomes the
-  starting point instead of a fake "reply", and only conversations that change
-  after that can add new rows. This keeps an old inbox from flooding the Sheet.
-* **Humans send, the system suggests.** The extension only reads the page. It
-  never clicks, types or sends. Drafts go to the Suggested Follow-up column.
+  script compares it with the row, and only a real difference becomes an event,
+  so sending the same screen twice changes nothing.
+* **One clock.** LinkedIn's "2:15 PM" labels are too rough to order messages,
+  so every event uses the time the extension saw it.
+* **Tracking starts at install.** Old chats become the starting point, not fake
+  replies, so an old inbox never floods the Sheet.
+* **The AI never blocks a status change.** The row moves to Replied first. If
+  Grok fails, the category is Unclassified and everything carries on.
+* **Humans send.** The extension never clicks, types or sends. Drafts go to the
+  Suggested Follow-up column.
+
+**Checked against the real page.** I first wrote the page selectors from
+memory, then checked them on the live Messages page. Two guesses were wrong:
+the conversation list has no links (so the extension learns each thread's id
+when it is opened and remembers it by name), and a loosely matched "seen" class
+also matched an element that is always on the page. Messages with a subject
+line preview as the subject, so the open thread decides who sent them.
 
 ## Status rules
 
-Status always reflects the latest turn of the conversation, and it never moves
-backwards unless we send a new message.
+Status always reflects the latest turn, and never moves backwards unless we
+send a new message.
 
 | Trigger | Condition | New status |
 | --- | --- | --- |
 | Lead row added | none | Not contacted |
-| A new message from us appears | any | Message sent |
+| New message from us | any | Message sent |
 | Seen marker on our latest message | status is Message sent | Opened |
-| A new message from the lead appears | any | Replied (plus AI label) |
-| Timer, no reply after N days | Message sent or Opened | Follow-up due, or Not replied after the last follow-up |
+| New message from the lead | any | Replied, plus AI label |
+| Timer, no reply after N days | Message sent or Opened | Follow-up due, or Not replied once follow-ups run out |
 
-Defaults are 3 days and 2 follow-ups. Demo mode reads the 3 days as 3 minutes.
-
-The brief also had a Delivered status. LinkedIn's web page does not show a
-separate delivered marker, so the extension cannot see it and the status was
-removed rather than left in as a step that never happens.
+Defaults are 3 days and 2 follow-ups; demo mode reads days as minutes.
+LinkedIn's web page has no delivered marker, so the brief's Delivered status
+was dropped rather than kept as a step that never happens.
 
 ## Known limitations
 
-* **It only syncs while LinkedIn is open in Chrome.** Messages that arrive
-  while the browser is closed are picked up the next time Messages is opened,
-  but their times are when the extension saw them, so a follow-up can be
-  flagged a little later than it should be.
-* **It depends on LinkedIn's page layout.** If LinkedIn changes its markup,
-  the selectors need updating. They all live in one file
-  (`extension/selectors.js`), and the popup has a "Check this page" button
-  that shows which ones still match. I first wrote them from memory, then
-  checked them on the live page, where two guesses turned out wrong: the
-  conversation list has no links, and a "seen" class name I matched loosely
-  also matched an element that is always there.
-* **A conversation is tracked once it has been opened.** LinkedIn's
-  conversation list carries no thread id, only the open thread's address
-  does. The extension learns the id the first time a conversation is opened
-  and remembers it by name after that. Messaging a lead means opening their
-  thread, so in practice this only affects old conversations.
-* **Opened is partial.** It is caught when a thread is open and the Seen
-  marker is there, and it still needs the lead to have read receipts on.
-  Otherwise the lead stays at Message sent until they reply.
+* **It only syncs while LinkedIn Messages is open in Chrome.** Messages that
+  arrive while it is closed are picked up later, timed when they were seen.
+* **A conversation is tracked once it has been opened since install**, because
+  only the open thread shows its id. Messaging a lead opens their thread, so
+  this mostly affects old chats.
+* **Opened needs the lead's read receipts on**, and the thread open while the
+  Seen marker shows. Otherwise the lead stays at Message sent until they reply.
+* **It depends on LinkedIn's page layout.** All selectors live in one file, and
+  the popup's "Check this page" shows which still match.
 * **Lower risk, not zero.** Reading your own screen is still scraping in the
-  strict sense. It makes no extra requests to LinkedIn, but it is not an
-  approved integration.
-* **The web app URL is the key.** Anyone with the URL could post to it, so
-  it should be treated like a password. It can only update leads and add rows.
-* **Google Sheets is not a real CRM at scale.** Apps Script has daily quotas
-  and the Sheet slows down with many thousands of rows.
+  strict sense, though it makes no requests to LinkedIn.
+* **The web app URL works like a password**, and Google Sheets is not a CRM at
+  scale (Apps Script quotas).
 
 ## Path to HubSpot or Zoho
 
 The rest of the script only talks to four methods: `listLeads`, `upsertLead`,
 `updateStatus` and `logEvent`. For HubSpot, leads become contacts with a few
-custom properties (tracker id, DM status, reply category, summary,
-timestamps), `logEvent` becomes a note on the contact, and the calls go
-through `UrlFetchApp` with a private app token. Zoho maps the same way onto
-its Leads module. The README has the method by method mapping.
+custom properties (tracker id, DM status, reply category, timestamps),
+`logEvent` becomes a note on the contact, and calls go through `UrlFetchApp`
+with a private app token. Zoho maps the same way onto its Leads module. The
+README has the method by method mapping.
 
 ## Outcome
 
-* A Chrome extension and a Google Apps Script that turn LinkedIn DM activity
-  into live CRM status, with AI labels on replies and drafted follow-ups.
-* 204 automated tests for the status rules, the screen comparison, matching,
-  the Sheets adapter, the AI fallback, the web app and the extension's page
-  parser. They run in Node against a fake Sheet and sample LinkedIn HTML.
-* A live Google Sheet with Leads, Events and Summary tabs.
-* A demo video showing a row go from Message sent to Opened to Replied with an
-  AI label, and an unanswered lead flip to Follow-up due.
+* A Chrome extension and an Apps Script that turn LinkedIn DM activity into
+  live CRM status, with AI labels on replies and drafted follow-ups.
+* 226 automated tests: status rules, matching, the Sheets adapter, the AI
+  fallback, the web app, the extension's parser on LinkedIn-shaped HTML, and an
+  end-to-end run from page to Sheet row.
+* A live Sheet (Leads, Events, Summary) and a demo video of a row going from
+  Message sent to Opened to Replied, and a quiet lead flipping to Follow-up due.

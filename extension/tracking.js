@@ -102,10 +102,14 @@
   }
 
   // Everything the backend cares about, minus observedAt (which changes on
-  // every scan and would make every conversation look changed).
+  // every scan and would make every conversation look changed) and the
+  // bookkeeping fields buildPayload leaves out, so a conversation reads the
+  // same before and after it is sent.
   function contentKey(conversation) {
     const copy = Object.assign({}, conversation);
     delete copy.observedAt;
+    delete copy.key;
+    delete copy.ambiguous;
     return JSON.stringify(copy);
   }
 

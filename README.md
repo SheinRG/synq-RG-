@@ -130,11 +130,15 @@ your Sheet.
 
 ### 3. The Chrome extension
 
-1. Open `chrome://extensions`, turn on **Developer mode**, click **Load
-   unpacked** and pick the `extension/` folder of this repo.
-2. Click the extension's icon, paste the web app URL, click **Save**, then
-   **Test connection**. It should show your Sheet's name.
-3. Open https://www.linkedin.com/messaging/. That's it.
+1. Get the code: clone this repo, or download it as a ZIP
+   (https://github.com/SheinRG/synq-RG-/archive/refs/heads/main.zip) and unzip it.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load
+   unpacked** and pick the `extension/` folder.
+3. Click the extension's icon, paste the web app URL (the one ending in
+   `/exec`, not the Sheet's own link), click **Save**, then **Test
+   connection**. It should show your Sheet's name.
+4. Open https://www.linkedin.com/messaging/. That's it. Click **Check this
+   page** in the popup to see what the extension can read.
 
 ### Try it
 
@@ -255,8 +259,12 @@ npm test
 ```
 
 No network or Google account needed. The Apps Script tests run `Code.js` in
-Node against an in-memory fake of the Sheet; the extension tests run the
-parser against sample LinkedIn HTML with made-up names.
+Node against an in-memory fake of the Sheet. The extension tests run the
+parser against sample HTML shaped like the live Messages page, with made-up
+names, and run the background worker against a fake `chrome` and `fetch`.
+`tests/end-to-end.test.js` ties both together: it follows a lead from a
+LinkedIn-shaped page through the extension and `doPost` to its Sheet row,
+from Message sent to Opened to Replied.
 
 ## Project layout
 
@@ -267,8 +275,9 @@ apps-script/
 extension/            the Chrome extension (Manifest V3, no build step)
 tests/
   apps-script/        status rules, screen comparison, matching, Sheet adapter, classifier, web app
-  extension/          page parser, change tracking, sample HTML
-docs/                 process doc, demo runbook, pivot plan
+  extension/          page parser, change tracking, background worker, sample HTML
+  end-to-end.test.js  a LinkedIn-shaped page all the way to a Sheet row
+docs/                 process doc (PROCESS.md and PROCESS.pdf), demo runbook, pivot plan
 ```
 
 ## Known limitations
