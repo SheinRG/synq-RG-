@@ -230,6 +230,24 @@ describe("sync: matching and auto-add", () => {
     expect(t.events().map((e) => e.type)).toEqual(["lead_auto_added", "outbound_message"]);
   });
 
+  it("never auto-adds a conversation read without a name or a message (page not fully loaded)", () => {
+    const t = setup({ rows: [] });
+    const r = t.sync([
+      convo({ name: "", threadId: "2-NONAME", fresh: true }),
+      convo({ name: "Someone", threadId: "2-EMPTY", fresh: true, lastMessage: null }),
+    ]);
+    expect(r.map((x) => x.action)).toEqual(["ignored", "ignored"]);
+    expect(t.rowCount()).toBe(0);
+  });
+
+  it("fills in a blank name once the conversation is read with one", () => {
+    const t = setup({ rows: [] });
+    // A row left nameless by an earlier version, linked to its thread.
+    t.deps.crm.upsertLead({ ...emptyLead("L-0001"), threadId: "2-RAYYAN", status: "Not contacted", source: "Auto-added" });
+    t.sync([convo({ name: "Mohammed Rayyan Qureshi", threadId: "2-RAYYAN", fresh: true, lastMessage: { fromMe: false, text: "Hii" } })]);
+    expect(t.row()).toMatchObject({ Name: "Mohammed Rayyan Qureshi", Status: "Replied" });
+  });
+
   it("ignores old conversations with people not in the sheet", () => {
     const t = setup({ rows: [] });
     const r = t.sync([convo({ name: "Old Contact", threadId: "2-OLD", fresh: false })]);

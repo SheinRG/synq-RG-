@@ -46,6 +46,8 @@ describe("URL and text helpers", () => {
   it("strips the contact's first name prefix only", () => {
     expect(parser.stripSenderPrefix("Bea: Sounds good", "Bea Example")).toBe("Sounds good");
     expect(parser.stripSenderPrefix("Note: read this", "Bea Example")).toBe("Note: read this");
+    expect(parser.stripSenderPrefix("Mohammed Rayyan: Hii", "Mohammed Rayyan Qureshi")).toBe("Hii");
+    expect(parser.stripSenderPrefix("Mohammed Rayyan Qureshi: Hii", "Mohammed Rayyan Qureshi")).toBe("Hii");
   });
 
   it("recognizes group chat names", () => {

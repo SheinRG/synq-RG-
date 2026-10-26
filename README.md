@@ -207,8 +207,9 @@ The extension never sends LinkedIn's displayed times; `observedAt` is the only c
 
 ## The Google Sheet
 
-**Leads**: one row per lead. People fill Name, Company and LinkedIn URL. The
-script owns every other column: Lead ID, Thread ID, Status, Reply Category,
+**Leads**: one row per lead. People fill Name, Company and LinkedIn URL; the
+script never overwrites them and only fills a blank name or URL from LinkedIn.
+The script owns every other column: Lead ID, Thread ID, Status, Reply Category,
 Reply Summary, Last Message Snippet, Last Message From, Last Outbound At,
 Opened At, Last Inbound At, Follow-up Count, Suggested Follow-up, Source,
 Updated At.

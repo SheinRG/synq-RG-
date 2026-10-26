@@ -54,7 +54,7 @@ const LEAD_COLUMNS = [
 
 const EVENT_HEADERS = ["Timestamp", "Lead ID", "Event Type", "Direction", "Message ID", "Old Status", "New Status"];
 
-/** Columns a human owns. The script only ever fills a blank LinkedIn URL. */
+/** Columns a human owns. The script only fills them while they are blank (name and LinkedIn URL from LinkedIn). */
 const HUMAN_KEYS = ["name", "company", "linkedinUrl"];
 
 /** One lead, one row. Timestamps are ISO strings, empty string when unset. */
@@ -467,8 +467,11 @@ function syncOne(conversation, leads, deps, toClassify) {
   if (match) {
     lead = match.lead;
     if (!lead.threadId) linkFields.threadId = threadId;
+    if (!lead.name && conversation.name) linkFields.name = conversation.name;
     if (!lead.linkedinUrl && profileSlug(conversation.profileUrl)) linkFields.linkedinUrl = conversation.profileUrl;
-  } else if (conversation.fresh) {
+  } else if (conversation.fresh && conversation.name && conversation.lastMessage) {
+    // A nameless or empty conversation means the page was not fully read;
+    // adding it would leave a blank row.
     lead = autoAddLead(conversation, leads, deps);
     action = "added";
   } else {
@@ -868,8 +871,8 @@ function rulesFrom(props) {
 //
 // Columns are found by header text, so people can reorder them. Rows are
 // found by Lead ID at write time, never by a remembered row number, so people
-// can sort or insert rows. The script never overwrites Name or Company, and
-// only fills a LinkedIn URL that is blank. Every text value is written with a
+// can sort or insert rows. The script never overwrites Name, Company or
+// LinkedIn URL; it only fills a blank name or URL from LinkedIn. Every text value is written with a
 // leading apostrophe, so text like "=IMPORTXML(...)" stays text and is never
 // run as a formula (the apostrophe is not part of the stored value).
 
@@ -933,7 +936,7 @@ function createSheetCrm(spreadsheet) {
     const allowed = {};
     Object.keys(fields).forEach((key) => {
       if (key === "leadId" || fields[key] === undefined) return;
-      if (HUMAN_KEYS.indexOf(key) !== -1 && !(key === "linkedinUrl" && !current.linkedinUrl)) return;
+      if (HUMAN_KEYS.indexOf(key) !== -1 && current[key]) return;
       allowed[key] = fields[key];
     });
     writeCells(table.sheet, rowNumber, table.columns, allowed);

@@ -127,7 +127,7 @@ describe("Google Sheets CRM adapter", () => {
     expect(sheet.rowObject(4)).toMatchObject({ Name: "Ann", Status: "Replied" });
   });
 
-  it("never overwrites Name or Company, and only fills a blank LinkedIn URL", () => {
+  it("never overwrites Name, Company or LinkedIn URL, and only fills them while blank", () => {
     const ss = setUpFakeSpreadsheet([
       { name: "Priya", company: "Acme", linkedinUrl: "https://www.linkedin.com/in/priya/" },
       { name: "Arjun" },
@@ -135,7 +135,8 @@ describe("Google Sheets CRM adapter", () => {
     const crm = createSheetCrm(ss);
     crm.listLeads();
     crm.upsertLead({ leadId: "L-0001", name: "P. Sharma", company: "Other", linkedinUrl: "https://www.linkedin.com/in/x/", status: "Opened" });
-    crm.upsertLead({ leadId: "L-0002", linkedinUrl: "https://www.linkedin.com/in/arjun/" });
+    crm.upsertLead({ leadId: "L-0002", name: "Arjun M.", linkedinUrl: "https://www.linkedin.com/in/arjun/" });
+    expect(leadsTab(ss).rowObject(3).Name).toBe("Arjun");
     expect(leadsTab(ss).rowObject(2)).toMatchObject({
       Name: "Priya",
       Company: "Acme",

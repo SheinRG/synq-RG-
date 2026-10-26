@@ -108,15 +108,16 @@
     return { fromMe: false, text };
   }
 
-  // Inbound previews may read "Priya: <text>". Strip it when it is the
-  // contact's first name so the text matches what the open thread shows.
+  // Inbound previews may read "Priya: <text>", or with more of the name
+  // ("Mohammed Rayyan: Hii"). Strip it when it is the start of the contact's
+  // name so the text matches what the open thread shows.
   function stripSenderPrefix(text, name) {
-    const firstName = cleanText(name).split(" ")[0];
-    if (!firstName) return text;
-    const prefix = firstName + ":";
-    return text.toLowerCase().startsWith(prefix.toLowerCase())
-      ? cleanText(text.slice(prefix.length))
-      : text;
+    const words = cleanText(name).split(" ").filter(Boolean);
+    for (let count = words.length; count > 0; count--) {
+      const prefix = words.slice(0, count).join(" ") + ":";
+      if (text.toLowerCase().startsWith(prefix.toLowerCase())) return cleanText(text.slice(prefix.length));
+    }
+    return text;
   }
 
   // Short tokens people put after their name: "Priya Sharma, MBA", "Sam Lee, Ph.D., PMP".
