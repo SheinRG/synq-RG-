@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LinkedIn Lead Tracker</title>
+    <style>
+      body {
+        width: 360px;
+        margin: 0;
+        padding: 14px 16px 16px;
+        font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #1f2328;
+        background: #fff;
+      }
+      h1 { font-size: 15px; margin: 0 0 2px; }
+      .subtitle { color: #59636e; margin: 0 0 12px; }
+      section { border-top: 1px solid #e5e7eb; padding-top: 10px; margin-top: 10px; }
+      label { display: block; font-weight: 600; margin-bottom: 4px; }
+      input[type="url"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        border: 1px solid #c8ccd1;
+        border-radius: 6px;
+        font: inherit;
+      }
+      .row { display: flex; gap: 8px; margin-top: 8px; }
+      button {
+        padding: 6px 12px;
+        border: 1px solid #c8ccd1;
+        border-radius: 6px;
+        background: #f6f8fa;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.primary { background: #0a66c2; border-color: #0a66c2; color: #fff; }
+      button:disabled { opacity: 0.6; cursor: default; }
+      .status { margin-top: 6px; min-height: 1.45em; }
+      .ok { color: #1a7f37; }
+      .error { color: #d1242f; }
+      .muted { color: #59636e; }
+      #diagnostics { margin-top: 8px; }
+      #diagnostics table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      #diagnostics td { padding: 2px 4px; border-bottom: 1px solid #f0f1f3; vertical-align: top; }
+      #diagnostics td.count { text-align: right; white-space: nowrap; }
+      #diagnostics .zero { color: #d1242f; font-weight: 600; }
+      #diagnostics ul { margin: 4px 0; padding-left: 18px; }
+      pre {
+        max-height: 180px;
+        overflow: auto;
+        background: #f6f8fa;
+        padding: 6px;
+        border-radius: 6px;
+        font-size: 11px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LinkedIn Lead Tracker</h1>
+    <p class="subtitle">Reads your LinkedIn Messages while you use them. It never sends or clicks anything.</p>
+
+    <section>
+      <label for="scriptUrl">Apps Script web app URL</label>
+      <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" spellcheck="false" />
+      <div class="row">
+        <button id="save" class="primary">Save</button>
+        <button id="test">Test connection</button>
+      </div>
+      <div id="connectionStatus" class="status"></div>
+    </section>
+
+    <section>
+      <div class="row">
+        <button id="syncNow">Sync now</button>
+        <button id="diagnose">Check this page</button>
+      </div>
+      <div id="syncStatus" class="status"></div>
+      <div id="diagnostics"></div>
+    </section>
+
+    <section>
+      <label>Last sync</label>
+      <div id="lastSync" class="muted">Not synced yet.</div>
+    </section>
+
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Lead Tracker",
+  "version": "1.0.0",
+  "description": "Reads your LinkedIn Messages as you use them and keeps lead statuses up to date in your Google Sheet. Never sends or clicks anything.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["selectors.js", "parser.js", "tracking.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "LinkedIn Lead Tracker",
+    "default_popup": "popup.html"
+  }
+}

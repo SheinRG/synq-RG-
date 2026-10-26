@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- Synthetic LinkedIn Messages page: conversation list only, no thread open.
+     All names and messages are fake. -->
+<html>
+  <body>
+    <main class="msg-conversations-container">
+      <ul class="msg-conversations-container__conversations-list">
+        <!-- Outbound preview ("You: "), already read -->
+        <li class="msg-conversation-listitem msg-conversations-container__convo-item">
+          <a class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" href="/messaging/thread/2-QUxFWDEyMw==/">
+            <h3 class="msg-conversation-listitem__participant-names msg-conversation-card__participant-names">
+              <span class="truncate">Alex Tester</span>
+            </h3>
+            <time class="msg-conversation-listitem__time-stamp">Oct 20</time>
+            <p class="msg-conversation-card__message-snippet">
+              <span class="msg-conversation-card__message-snippet-sender">You:</span>
+              Following up on my note about the pilot
+            </p>
+          </a>
+        </li>
+
+        <!-- Inbound preview with the sender's first name, unread -->
+        <li class="msg-conversation-listitem msg-conversations-container__convo-item">
+          <a class="msg-conversation-listitem__link msg-conversation-listitem__link--unread" href="https://www.linkedin.com/messaging/thread/2-QkVBNDU2/?trk=fake">
+            <h3 class="msg-conversation-listitem__participant-names">Bea Example</h3>
+            <time class="msg-conversation-listitem__time-stamp">Oct 19</time>
+            <p class="msg-conversation-card__message-snippet">Bea: Sounds good, Tuesday works for me</p>
+            <span class="msg-conversation-card__unread-count">1</span>
+          </a>
+        </li>
+
+        <!-- Group chat -->
+        <li class="msg-conversation-listitem msg-conversations-container__convo-item">
+          <a class="msg-conversation-listitem__link" href="/messaging/thread/2-R1JPVVA3ODk%3D/">
+            <h3 class="msg-conversation-listitem__participant-names">Cara Demo, Dan Sample and 2 others</h3>
+            <time class="msg-conversation-listitem__time-stamp">Oct 17</time>
+            <p class="msg-conversation-card__message-snippet">Dan: See you all there</p>
+          </a>
+        </li>
+
+        <!-- No thread link (clickable div) and not the open thread: skipped -->
+        <li class="msg-conversation-listitem msg-conversations-container__convo-item">
+          <div class="msg-conversation-listitem__link" tabindex="0">
+            <h3 class="msg-conversation-listitem__participant-names">Eve Placeholder</h3>
+            <time class="msg-conversation-listitem__time-stamp">Oct 2</time>
+            <p class="msg-conversation-card__message-snippet">You: Thanks for connecting, Eve!</p>
+          </div>
+        </li>
+
+        <!-- Credentials after the name: one person, not a group -->
+        <li class="msg-conversation-listitem msg-conversations-container__convo-item">
+          <a class="msg-conversation-listitem__link" href="/messaging/thread/2-RklOTg==/">
+            <h3 class="msg-conversation-listitem__participant-names">Finn Mock, MBA, PMP</h3>
+            <time class="msg-conversation-listitem__time-stamp">Oct 1</time>
+            <p class="msg-conversation-card__message-snippet">You: Hi Finn, quick question about your team</p>
+          </a>
+        </li>
+
+        <!-- Sponsored InMail ad: never a lead -->
+        <li class="msg-conversation-listitem msg-conversations-container__convo-item">
+          <a class="msg-conversation-listitem__link" href="/messaging/thread/2-QUQ=/">
+            <h3 class="msg-conversation-listitem__participant-names">Some Brand</h3>
+            <span class="msg-conversation-card__pill">Sponsored</span>
+            <p class="msg-conversation-card__message-snippet">Grow your pipeline with our new tool</p>
+          </a>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
