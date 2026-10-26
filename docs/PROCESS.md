@@ -128,7 +128,15 @@ removed rather than left in as a step that never happens.
 * **It depends on LinkedIn's page layout.** If LinkedIn changes its markup,
   the selectors need updating. They all live in one file
   (`extension/selectors.js`), and the popup has a "Check this page" button
-  that shows which ones still match.
+  that shows which ones still match. I first wrote them from memory, then
+  checked them on the live page, where two guesses turned out wrong: the
+  conversation list has no links, and a "seen" class name I matched loosely
+  also matched an element that is always there.
+* **A conversation is tracked once it has been opened.** LinkedIn's
+  conversation list carries no thread id, only the open thread's address
+  does. The extension learns the id the first time a conversation is opened
+  and remembers it by name after that. Messaging a lead means opening their
+  thread, so in practice this only affects old conversations.
 * **Opened is partial.** It is caught when a thread is open and the Seen
   marker is there, and it still needs the lead to have read receipts on.
   Otherwise the lead stays at Message sent until they reply.

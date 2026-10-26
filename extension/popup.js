@@ -123,9 +123,18 @@ function countsText(counts) {
 
 function renderDiagnostics(report) {
   const box = diagnosticsBox;
-  box.append(
-    el("div", "", "Conversations read: " + report.listCount + (report.skippedItems ? " (" + report.skippedItems + " skipped: no thread id found)" : ""))
-  );
+  const waiting = report.waitingNames || [];
+  box.append(el("div", "", "Conversations read: " + report.listCount + ", tracked: " + (report.listCount - waiting.length)));
+  if (waiting.length) {
+    box.append(
+      el(
+        "div",
+        "muted",
+        "Not tracked until opened once (LinkedIn's list has no thread links): " +
+          waiting.slice(0, 6).join(", ") + (waiting.length > 6 ? " and " + (waiting.length - 6) + " more" : "")
+      )
+    );
+  }
 
   const thread = report.openThread;
   box.append(

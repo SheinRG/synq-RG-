@@ -1,21 +1,21 @@
 <!doctype html>
 <!-- Synthetic page at /messaging/thread/2-RVZFOTk5/ : the lead replied last.
-     Their list item has no thread link, only an "active" marker, so the id must
-     come from the URL. All data is fake. -->
+     The list item has no thread link, only the "active" marker, so the id
+     comes from the URL. All data is fake. -->
 <html>
   <body>
     <ul class="msg-conversations-container__conversations-list">
       <li class="msg-conversation-listitem">
-        <div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link--active" tabindex="0">
+        <div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link msg-conversations-container__convo-item-link--active" tabindex="0">
           <h3 class="msg-conversation-listitem__participant-names">Eve Placeholder</h3>
           <p class="msg-conversation-card__message-snippet">Eve: Happy to help, send it over</p>
         </div>
       </li>
       <li class="msg-conversation-listitem">
-        <a class="msg-conversation-listitem__link" href="/messaging/thread/2-QUxFWDEyMw==/">
+        <div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" tabindex="0">
           <h3 class="msg-conversation-listitem__participant-names">Alex Tester</h3>
           <p class="msg-conversation-card__message-snippet">You: Following up on my note about the pilot</p>
-        </a>
+        </div>
       </li>
     </ul>
 
@@ -26,17 +26,20 @@
         </a>
       </div>
       <ul class="msg-s-message-list-content">
-        <li class="msg-s-message-list__event">
-          <div class="msg-s-event-listitem">
+        <li class="msg-s-message-list__event clearfix">
+          <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--has-seen-receipts">
             <p class="msg-s-event-listitem__body">Thanks for connecting, Eve! Could I send you a short question?</p>
-            <div class="msg-s-event-listitem__seen-receipts"><img alt="Seen by Eve Placeholder" src="data:," /></div>
+          </div>
+          <div class="msg-s-event-listitem__seen-receipts">
+            <img class="msg-s-event-listitem__seen-receipt-photo" alt="Seen by Eve Placeholder at 9:00 AM." src="data:," />
           </div>
         </li>
-        <li class="msg-s-message-list__event">
-          <div class="msg-s-event-listitem msg-s-event-listitem--other">
+        <li class="msg-s-message-list__event clearfix">
+          <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--other">
             <p class="msg-s-event-listitem__body">Happy to help, send it over</p>
           </div>
         </li>
+        <li class="msg-s-message-list__typing-indicator-container--without-seen-receipt"></li>
       </ul>
     </div>
   </body>

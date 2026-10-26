@@ -37,22 +37,41 @@
     return { list, thread, conversations };
   }
 
-  // Reads the page and marks each conversation fresh or not (see tracking.js).
+  // Storage keys. "freshStateV2" replaced "freshState" when the state moved
+  // from thread ids to names, so the baseline is taken again.
+  const FRESH_KEY = "freshStateV2";
+  const MEMORY_KEY = "threadMemory";
+
+  // Reads the page, fills in thread ids learned earlier and marks each
+  // conversation fresh or not (see tracking.js). Conversations whose thread id
+  // is still unknown are returned separately: they are not sent until their
+  // thread has been opened once.
   async function collect() {
     const observedAt = new Date().toISOString();
     const { conversations } = readPage(observedAt);
-    const stored = await chrome.storage.local.get("freshState");
-    const result = tracking.applyFreshness(conversations, stored.freshState);
-    await chrome.storage.local.set({ freshState: result.state });
-    return { observedAt, conversations: result.conversations };
+    const stored = await chrome.storage.local.get([FRESH_KEY, MEMORY_KEY]);
+    const remembered = tracking.rememberThreads(conversations, stored[MEMORY_KEY]);
+    const result = tracking.applyFreshness(remembered.conversations, stored[FRESH_KEY]);
+    await chrome.storage.local.set({ [FRESH_KEY]: result.state, [MEMORY_KEY]: remembered.memory });
+    return {
+      observedAt,
+      conversations: result.conversations.filter((c) => c.threadId),
+      waiting: result.conversations.filter((c) => !c.threadId),
+    };
   }
 
   // sendAll=false: only conversations that changed since we last sent them.
   async function sync(sendAll) {
-    const { observedAt, conversations } = await collect();
+    const { observedAt, conversations, waiting } = await collect();
     const toSend = sendAll ? conversations : tracking.pickChanged(conversations, lastSent);
     if (toSend.length === 0) {
-      return { ok: true, sent: 0, note: conversations.length ? "Nothing changed since the last sync." : "No conversations found on this page." };
+      let note = "Nothing changed since the last sync.";
+      if (!conversations.length) {
+        note = waiting.length
+          ? "No conversation can be sent yet: open each one once so the tracker learns its thread."
+          : "No conversations found on this page.";
+      }
+      return { ok: true, sent: 0, note };
     }
     const payload = tracking.buildPayload(toSend, observedAt);
     // Marked as sent once handed over: the background keeps and retries
@@ -94,14 +113,16 @@
     if (scanTimer) clearTimeout(scanTimer);
   }
 
-  function diagnose() {
+  async function diagnose() {
     const page = readPage(new Date().toISOString());
+    const stored = await chrome.storage.local.get(MEMORY_KEY);
+    const remembered = tracking.rememberThreads(page.conversations, stored[MEMORY_KEY]).conversations;
     return {
       url: location.href,
       onMessagingPage: onMessagingPage(),
       selectorCounts: parser.countSelectorMatches(document),
-      listCount: page.list.conversations.length,
-      skippedItems: page.list.skipped,
+      listCount: page.conversations.length,
+      waitingNames: remembered.filter((c) => !c.threadId).map((c) => c.name),
       openThread: page.thread && {
         threadId: page.thread.threadId,
         name: page.thread.name,
@@ -110,19 +131,21 @@
         lastFromMe: page.thread.lastMessage ? page.thread.lastMessage.fromMe : null,
         seen: page.thread.seen,
       },
-      conversations: page.conversations.slice(0, 20),
+      conversations: remembered.slice(0, 20),
     };
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message) return false;
     if (message.type === "diagnose") {
-      try {
-        sendResponse({ ok: true, report: diagnose() });
-      } catch (err) {
-        sendResponse({ ok: false, error: String((err && err.message) || err) });
-      }
-      return false;
+      diagnose().then(
+        (report) => sendResponse({ ok: true, report }),
+        (err) => {
+          handleError(err);
+          sendResponse({ ok: false, error: String((err && err.message) || err) });
+        },
+      );
+      return true; // async response
     }
     if (message.type === "syncNow") {
       if (!onMessagingPage()) {

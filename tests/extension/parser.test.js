@@ -39,6 +39,8 @@ describe("URL and text helpers", () => {
   it("strips the 'You:' prefix and marks the message as ours", () => {
     expect(parser.stripYouPrefix("You:  Hi there")).toEqual({ fromMe: true, text: "Hi there" });
     expect(parser.stripYouPrefix("Hi there")).toEqual({ fromMe: false, text: "Hi there" });
+    expect(parser.stripYouPrefix("You sent an attachment")).toEqual({ fromMe: true, text: "You sent an attachment" });
+    expect(parser.stripYouPrefix("Simar sent a post")).toEqual({ fromMe: false, text: "Simar sent a post" });
   });
 
   it("strips the contact's first name prefix only", () => {
@@ -72,29 +74,56 @@ describe("URL and text helpers", () => {
 });
 
 describe("parseConversationList", () => {
-  const { conversations, skipped } = parser.parseConversationList(loadFixture("list.html"), "/messaging/");
+  const { conversations } = parser.parseConversationList(loadFixture("list.html"), "/messaging/");
+  const byName = (name) => conversations.filter((c) => c.name === name);
 
-  it("reads every item with a thread link and skips the one without", () => {
-    expect(conversations.map((c) => c.threadId)).toEqual([ALEX, BEA, GROUP, "2-RklOTg=="]);
-    expect(skipped).toBe(1);
+  it("reads every named item, with a thread id only where the page shows one", () => {
+    expect(conversations.map((c) => c.name)).toEqual([
+      "Alex Tester",
+      "Bea Example",
+      "Cara Demo, Dan Sample and 2 others",
+      "Eve Placeholder",
+      "Finn Mock",
+      "Gus Twin",
+      "Gus Twin",
+    ]);
+    expect(conversations.map((c) => c.threadId)).toEqual(["", "", "", "", "2-RklOTg==", "", ""]);
+    expect(byName("Finn Mock")[0].threadUrl).toBe("https://www.linkedin.com/messaging/thread/2-RklOTg==/");
   });
 
-  it("skips sponsored InMail ads", () => {
+  it("skips sponsored InMail ads and empty placeholders", () => {
     expect(conversations.some((c) => c.name === "Some Brand")).toBe(false);
+    expect(conversations).toHaveLength(7);
+  });
+
+  it("keys items by name and flags names that appear twice", () => {
+    expect(conversations.map((c) => c.key)).toEqual([
+      "alex tester",
+      "bea example",
+      "cara demo, dan sample and 2 others",
+      "eve placeholder",
+      "finn mock",
+      "gus twin",
+      "gus twin#2",
+    ]);
+    expect(conversations.map((c) => c.ambiguous)).toEqual([false, false, false, false, false, true, true]);
   });
 
   it("drops credentials from a name instead of treating it as a group", () => {
-    expect(conversations[3]).toMatchObject({ name: "Finn Mock", isGroup: false });
+    expect(byName("Finn Mock")[0]).toMatchObject({ isGroup: false });
   });
 
   it("reads an outbound preview without the 'You:' prefix", () => {
     expect(conversations[0]).toMatchObject({
       name: "Alex Tester",
-      threadUrl: "https://www.linkedin.com/messaging/thread/2-QUxFWDEyMw==/",
       isGroup: false,
       unread: false,
       lastMessage: { fromMe: true, text: "Following up on my note about the pilot" },
     });
+  });
+
+  it("reads 'You sent an attachment' as our message", () => {
+    expect(byName("Eve Placeholder")[0].lastMessage).toEqual({ fromMe: true, text: "You sent an attachment" });
   });
 
   it("reads an unread inbound preview", () => {
@@ -111,7 +140,7 @@ describe("parseConversationList", () => {
 
   it("returns nothing on an unrelated page instead of throwing", () => {
     const doc = new JSDOM("<p>feed</p>").window.document;
-    expect(parser.parseConversationList(doc, "/feed/")).toEqual({ conversations: [], skipped: 0 });
+    expect(parser.parseConversationList(doc, "/feed/")).toEqual({ conversations: [] });
   });
 });
 
@@ -131,6 +160,11 @@ describe("parseOpenThread", () => {
       lastMessage: { fromMe: true, text: "Following up on my note about the pilot. Here is a short summary." },
     });
     expect(thread.messages.map((m) => m.fromMe)).toEqual([true, false, true]);
+  });
+
+  it("the always-present 'without-seen-receipt' container is not a receipt", () => {
+    const thread = parser.parseOpenThread(loadFixture("thread-seen-earlier.html"), "/messaging/thread/2-RlJBTks=/");
+    expect(thread.seen).toBe(false);
   });
 
   it("receipt on an earlier message only: not seen", () => {
@@ -176,8 +210,10 @@ describe("mergeConversations", () => {
   it("list-only conversations get the payload shape with no thread details", () => {
     const merged = readPage("list.html", "/messaging/");
     expect(merged[1]).toEqual({
-      threadId: BEA,
-      threadUrl: "https://www.linkedin.com/messaging/thread/2-QkVBNDU2/",
+      threadId: "",
+      threadUrl: "",
+      key: "bea example",
+      ambiguous: false,
       name: "Bea Example",
       profileUrl: "",
       isGroup: false,
@@ -189,28 +225,45 @@ describe("mergeConversations", () => {
     });
   });
 
-  it("the open thread overrides its list entry", () => {
+  it("the open thread's item gets its id from the URL and the thread's details", () => {
     const merged = readPage("thread-seen-last.html", "/messaging/thread/" + ALEX + "/");
     expect(merged).toHaveLength(2);
     expect(merged[0]).toMatchObject({
       threadId: ALEX,
+      threadUrl: "https://www.linkedin.com/messaging/thread/2-QUxFWDEyMw==/",
       profileUrl: "https://www.linkedin.com/in/alex-tester-fake/",
       seen: true,
-      lastMessage: { fromMe: true, text: "Following up on my note about the pilot. Here is a short summary." },
     });
     expect(merged[0].messages).toHaveLength(3);
-    expect(merged[1]).toMatchObject({ threadId: BEA, seen: null, messages: [] });
+    expect(merged[1]).toMatchObject({ threadId: "", name: "Bea Example", seen: null, messages: [] });
   });
 
-  it("an open thread missing from the list is appended", () => {
+  it("keeps the list preview text, so the same message reads the same with the thread open or closed", () => {
+    const merged = readPage("thread-seen-last.html", "/messaging/thread/" + ALEX + "/");
+    expect(merged[0].lastMessage).toEqual({ fromMe: true, text: "Following up on my note about the pilot. Here is a sh…" });
+  });
+
+  it("takes who sent the last message from the thread, not the preview", () => {
+    const list = [{ threadId: EVE, threadUrl: "u", key: "eve", name: "Eve", isGroup: false, lastMessage: { fromMe: false, text: "Subject line" } }];
+    const thread = { threadId: EVE, threadUrl: "u", name: "Eve", profileUrl: "", isGroup: false, lastMessage: { fromMe: true, text: "Body" }, seen: false, messages: [{ fromMe: true, text: "Body" }] };
+    expect(parser.mergeConversations(list, thread, AT)[0].lastMessage).toEqual({ fromMe: true, text: "Subject line" });
+  });
+
+  it("an open thread missing from the list is appended with the thread's last message", () => {
     const merged = readPage("thread-seen-earlier.html", "/messaging/thread/2-RlJBTks=/");
-    expect(merged.map((c) => c.threadId)).toEqual([ALEX, FRANK]);
-    expect(merged[1]).toMatchObject({ name: "Frank Mock", seen: false, observedAt: AT });
+    expect(merged.map((c) => c.threadId)).toEqual(["", FRANK]);
+    expect(merged[1]).toMatchObject({
+      key: "thread:" + FRANK,
+      name: "Frank Mock",
+      seen: false,
+      observedAt: AT,
+      lastMessage: { fromMe: true, text: "Sharing the deck I mentioned." },
+    });
   });
 
-  it("an item without a link is identified from the URL when it is the open thread", () => {
+  it("the lead's reply in the open thread", () => {
     const merged = readPage("thread-lead-last.html", "/messaging/thread/" + EVE + "/");
-    expect(merged.map((c) => c.threadId)).toEqual([EVE, ALEX]);
+    expect(merged.map((c) => c.threadId)).toEqual([EVE, ""]);
     expect(merged[0]).toMatchObject({ name: "Eve Placeholder", lastMessage: { fromMe: false, text: "Happy to help, send it over" } });
   });
 

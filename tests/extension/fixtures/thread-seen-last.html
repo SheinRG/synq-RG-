@@ -1,20 +1,21 @@
 <!doctype html>
 <!-- Synthetic page at /messaging/thread/2-QUxFWDEyMw==/ : our message is the
-     last one and carries the "Seen" receipt. All data is fake. -->
+     last one and carries the "Seen" receipt. Shaped like the live page on
+     2026-10-26. All data is fake. -->
 <html>
   <body>
     <ul class="msg-conversations-container__conversations-list">
       <li class="msg-conversation-listitem">
-        <a class="msg-conversation-listitem__link msg-conversations-container__convo-item-link--active" href="/messaging/thread/2-QUxFWDEyMw==/">
+        <div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link msg-conversations-container__convo-item-link--active" tabindex="0">
           <h3 class="msg-conversation-listitem__participant-names">Alex Tester</h3>
-          <p class="msg-conversation-card__message-snippet">You: Following up on my note about the pilot</p>
-        </a>
+          <p class="msg-conversation-card__message-snippet">You: Following up on my note about the pilot. Here is a sh…</p>
+        </div>
       </li>
       <li class="msg-conversation-listitem">
-        <a class="msg-conversation-listitem__link" href="/messaging/thread/2-QkVBNDU2/">
+        <div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" tabindex="0">
           <h3 class="msg-conversation-listitem__participant-names">Bea Example</h3>
           <p class="msg-conversation-card__message-snippet">Bea: Sounds good, Tuesday works for me</p>
-        </a>
+        </div>
       </li>
     </ul>
 
@@ -25,29 +26,38 @@
         </a>
       </div>
       <ul class="msg-s-message-list-content">
-        <li class="msg-s-message-list__event">
+        <li class="msg-s-message-list__top-of-list"></li>
+        <li class="msg-s-message-list__event clearfix">
           <time class="msg-s-message-list__time-heading">Oct 18</time>
-          <!-- Our own profile link inside the list must not be taken as the lead's -->
-          <div class="msg-s-message-group__meta"><a href="/in/me-myself-fake/">Me Myself</a></div>
-          <div class="msg-s-event-listitem">
+          <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group">
+            <!-- Our own profile link inside the list must not be taken as the lead's -->
+            <a href="https://www.linkedin.com/in/ACoAAMeMyselfFake"><img class="msg-s-event-listitem__profile-picture" alt="" /></a>
+            <div class="msg-s-message-group__meta">
+              <span class="msg-s-message-group__profile-link msg-s-message-group__name">Me Myself</span>
+              <time class="msg-s-message-group__timestamp">10:00 AM</time>
+            </div>
             <p class="msg-s-event-listitem__body">Hi Alex, would you be open to a quick chat about the pilot?</p>
           </div>
         </li>
-        <li class="msg-s-message-list__event">
-          <div class="msg-s-message-group__meta"><a href="/in/alex-tester-fake/">Alex Tester</a></div>
-          <div class="msg-s-event-listitem msg-s-event-listitem--other">
+        <li class="msg-s-message-list__event clearfix">
+          <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--other">
+            <div class="msg-s-message-group__meta">
+              <span class="msg-s-message-group__profile-link msg-s-message-group__name">Alex Tester</span>
+            </div>
             <p class="msg-s-event-listitem__body">Maybe, can you share more details?</p>
           </div>
         </li>
-        <li class="msg-s-message-list__event">
-          <div class="msg-s-event-listitem">
+        <li class="msg-s-message-list__event clearfix">
+          <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group msg-s-event-listitem--has-seen-receipts">
             <p class="msg-s-event-listitem__body">Following up on my note about the pilot. Here is a short summary.</p>
           </div>
-          <!-- Receipt beside the message, inside the same event wrapper -->
-          <div class="msg-s-event-listitem__seen-receipts">
-            <img alt="Seen by Alex Tester at 10:02 AM" src="data:," />
+          <!-- The receipt sits beside the message, inside the same event -->
+          <div class="msg-s-event-listitem__seen-receipts t-12">
+            <img class="msg-s-event-listitem__seen-receipt-photo" title="Seen by Alex Tester at 10:02 AM." alt="Seen by Alex Tester at 10:02 AM." src="data:," />
           </div>
         </li>
+        <li class="msg-s-message-list__typing-indicator-container--without-seen-receipt"></li>
+        <li class="msg-s-message-list__bottom-of-list"></li>
       </ul>
     </div>
   </body>

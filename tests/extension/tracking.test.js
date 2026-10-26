@@ -67,6 +67,74 @@ describe("applyFreshness", () => {
   });
 });
 
+describe("rememberThreads", () => {
+  // A list item as the parser returns it: no thread id unless it is open.
+  function item(name, text, extra = {}) {
+    return {
+      ...convo("", text),
+      threadUrl: "",
+      name,
+      key: name.toLowerCase(),
+      ambiguous: false,
+      ...extra,
+    };
+  }
+  const open = (name, threadId, text, fromMe = true) =>
+    item(name, text, { threadId, threadUrl: "u", messages: [{ fromMe, text }], lastMessage: { fromMe, text } });
+
+  it("learns a thread id while the thread is open and uses it once it is closed", () => {
+    const first = tracking.rememberThreads([open("Ana Fake", "2-ANA", "hi"), item("Ben Fake", "yo")], undefined);
+    expect(first.conversations.map((c) => c.threadId)).toEqual(["2-ANA", ""]);
+
+    const later = tracking.rememberThreads([item("Ana Fake", "hi"), item("Ben Fake", "yo")], first.memory);
+    expect(later.conversations[0]).toMatchObject({
+      threadId: "2-ANA",
+      threadUrl: "https://www.linkedin.com/messaging/thread/2-ANA/",
+    });
+    expect(later.conversations[1].threadId).toBe("");
+  });
+
+  it("never learns or looks up a name shown twice in the list", () => {
+    const memory = { ids: { "gus twin": "2-OLD" }, senders: {} };
+    const result = tracking.rememberThreads(
+      [open("Gus Twin", "2-NEW", "a", true), item("Gus Twin", "b", { key: "gus twin#2" })].map((c) => ({ ...c, ambiguous: true })),
+      memory,
+    );
+    expect(result.conversations.map((c) => c.threadId)).toEqual(["2-NEW", ""]);
+    expect(result.memory.ids["gus twin"]).toBe("2-OLD");
+  });
+
+  it("keeps who sent the last message, as the thread showed it, while the preview is unchanged", () => {
+    // A message with a subject line: the preview shows the subject with no "You:".
+    const first = tracking.rememberThreads([open("Ana Fake", "2-ANA", "Applying for the intern role", true)], undefined);
+    const closed = item("Ana Fake", "Applying for the intern role", { lastMessage: { fromMe: false, text: "Applying for the intern role" } });
+    const later = tracking.rememberThreads([closed], first.memory);
+    expect(later.conversations[0].lastMessage).toEqual({ fromMe: true, text: "Applying for the intern role" });
+
+    // A new preview is a new message: the list's reading is used again.
+    const replied = item("Ana Fake", "Sure, let's talk", { lastMessage: { fromMe: false, text: "Sure, let's talk" } });
+    expect(tracking.rememberThreads([replied], first.memory).conversations[0].lastMessage.fromMe).toBe(false);
+  });
+
+  it("does not mutate its inputs", () => {
+    const memory = { ids: {}, senders: {} };
+    const conversations = [open("Ana Fake", "2-ANA", "hi")];
+    const copy = JSON.parse(JSON.stringify(conversations));
+    tracking.rememberThreads(conversations, memory);
+    expect(memory).toEqual({ ids: {}, senders: {} });
+    expect(conversations).toEqual(copy);
+  });
+});
+
+describe("freshness by name", () => {
+  it("baselines conversations whose thread id is not known yet, and keeps them baselined once it is", () => {
+    const withoutId = { ...convo("", "old chat"), key: "ana fake" };
+    const first = tracking.applyFreshness([withoutId], undefined);
+    const withId = { ...convo("2-ANA", "old chat"), key: "ana fake" };
+    expect(tracking.applyFreshness([withId], first.state).conversations[0].fresh).toBe(false);
+  });
+});
+
 describe("changed-only diffing", () => {
   it("sends everything the first time, then only what changed", () => {
     const first = [convo("a", "one"), convo("b", "two")];
@@ -92,6 +160,12 @@ describe("buildPayload", () => {
     expect(payload.version).toBe(1);
     expect(payload.observedAt).toBe("2026-10-26T10:00:00.000Z");
     expect(payload.conversations).toHaveLength(200);
+  });
+
+  it("leaves out the extension's own bookkeeping fields", () => {
+    const payload = tracking.buildPayload([{ ...convo("a", "x"), key: "fake a", ambiguous: false }], "2026-10-26T10:00:00.000Z");
+    expect(payload.conversations[0]).not.toHaveProperty("key");
+    expect(payload.conversations[0]).not.toHaveProperty("ambiguous");
   });
 });
 

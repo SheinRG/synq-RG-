@@ -6,10 +6,10 @@
 // the popup, see which keys match 0 elements, and add a working selector to
 // the front of that key's list. Nothing else should need to change.
 //
-// Status: these are educated guesses from LinkedIn's long-standing messaging
-// markup ("msg-*" class names). They have NOT yet been verified on the live
-// page. Where possible we lean on sturdier signals than class names: thread
-// links (/messaging/thread/), profile links (/in/), and "Seen by" alt/title text.
+// Status: checked against the live page on 2026-10-26. The first selector of
+// each key is the one LinkedIn used that day; the rest are fallbacks. Where
+// possible we also lean on sturdier signals than class names: profile links
+// (/in/) and the "Seen by" alt/title text.
 
 (function () {
   const SELECTORS = {
@@ -21,9 +21,10 @@
       "ul.msg-conversations-container__conversations-list > li",
     ],
 
-    // Link to the conversation. Its href carries the thread id. Some LinkedIn
-    // versions render the item as a clickable div with no href; those items are
-    // skipped unless they are the open thread (id then comes from the URL).
+    // Link to the conversation. Its href carries the thread id. In October 2026
+    // LinkedIn renders the item as a clickable div with no href, so this matches
+    // nothing and the id comes from the URL of the open thread instead (see
+    // tracking.rememberThreads). Kept in case links come back.
     itemThreadLink: [
       "a[href*='/messaging/thread/']",
       "a.msg-conversation-listitem__link",
@@ -45,9 +46,11 @@
       "[class*='message-snippet']",
     ],
 
-    // Unread marker (count badge or an "--unread" modifier on the link).
+    // Unread marker (count badge or an "--unread" modifier).
     itemUnread: [
+      ".msg-conversation-card__convo-item-container--unread",
       ".msg-conversation-card__unread-count",
+      ".msg-conversation-card__message-snippet--unread",
       ".msg-conversation-listitem__link--unread",
       "[class*='--unread']",
     ],
@@ -57,7 +60,6 @@
     itemSponsoredLabel: [
       ".msg-conversation-card__pill",
       "[class*='sponsored']",
-      "[class*='pill']",
     ],
 
     // Marks the list item of the thread that is currently open.
@@ -115,10 +117,12 @@
     ],
 
     // Read receipt. LinkedIn attaches it to the latest message the other
-    // person has seen. Searched inside one message's event element.
+    // person has seen: the message gets "--has-seen-receipts" and the receipt
+    // sits beside it in the same event element. Not "[class*='seen-receipt']":
+    // that also matches the always-present "...--without-seen-receipt".
     seenReceipt: [
       ".msg-s-event-listitem__seen-receipts",
-      "[class*='seen-receipt']",
+      ".msg-s-event-listitem--has-seen-receipts",
       "img[alt^='Seen by']",
       "[title^='Seen by']",
       "[aria-label^='Seen by']",

@@ -54,6 +54,13 @@ so in practice the first match is usually by name, and the thread id is saved
 on the row so every later match is exact. Credentials after a name
 ("Priya Sharma, MBA") are dropped before matching.
 
+LinkedIn's conversation list has no links, so the thread id is only in the
+address bar of the thread that is open. The extension learns it the first time
+you open a conversation and remembers it by name, so from then on the list
+alone is enough. A conversation you have not opened since installing is
+not sent yet; the popup's **Check this page** lists those. Names shown twice
+in the list are never looked up this way, only read while open.
+
 **Tracking starts when the extension is installed.** On its first run the
 extension records what is already in the inbox. An old chat with someone in
 the Sheet is saved as the starting point, not counted as a reply, and only a
@@ -269,8 +276,11 @@ docs/                 process doc, demo runbook, pivot plan
 * **It only syncs while LinkedIn is open in Chrome.** Anything that happens
   while the browser is closed is picked up when Messages is opened again, with
   the time it was seen rather than the time it was sent.
-* **It depends on LinkedIn's page layout.** If LinkedIn changes its markup,
-  update `extension/selectors.js`. The popup's **Check this page** shows what broke.
+* **It depends on LinkedIn's page layout.** The selectors were checked on the
+  live page on 2026-10-26. If LinkedIn changes its markup, update
+  `extension/selectors.js`. The popup's **Check this page** shows what broke.
+* **A conversation is tracked once it has been opened** (see How it works).
+  Messaging a lead opens their thread, so this mostly affects old chats.
 * **Opened is partial.** It needs the thread to be open while the Seen marker
   is showing, and the lead must have read receipts on. Otherwise the lead stays
   at `Message sent` until they reply.

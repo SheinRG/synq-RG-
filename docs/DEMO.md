@@ -14,7 +14,8 @@ The video matters most. Aim for 3 to 5 minutes, Sheet and LinkedIn side by side.
 5. Put 2 or 3 friends in the Leads tab (name, company, LinkedIn URL only). They
    get Lead IDs and `Not contacted` within a few seconds, or on the next sync.
 6. Open https://www.linkedin.com/messaging/ once before recording, so the
-   extension records its starting point.
+   extension records its starting point. If you already have a chat with a
+   friend, open it once too, so the extension learns its thread.
 7. Ask friend A to keep read receipts on and be ready to open your message and
    reply. Friend B should not reply.
 

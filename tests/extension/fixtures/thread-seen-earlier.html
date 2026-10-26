@@ -6,10 +6,10 @@
   <body>
     <ul class="msg-conversations-container__conversations-list">
       <li class="msg-conversation-listitem">
-        <a class="msg-conversation-listitem__link" href="/messaging/thread/2-QUxFWDEyMw==/">
+        <div class="msg-conversation-listitem__link msg-conversations-container__convo-item-link" tabindex="0">
           <h3 class="msg-conversation-listitem__participant-names">Alex Tester</h3>
           <p class="msg-conversation-card__message-snippet">You: Following up on my note about the pilot</p>
-        </a>
+        </div>
       </li>
     </ul>
 
@@ -20,17 +20,20 @@
         </a>
       </div>
       <ul class="msg-s-message-list-content">
-        <li class="msg-s-message-list__event">
-          <div class="msg-s-event-listitem">
+        <li class="msg-s-message-list__event clearfix">
+          <div class="msg-s-event-listitem msg-s-event-listitem--has-seen-receipts">
             <p class="msg-s-event-listitem__body">Hi Frank, great talk last week.</p>
-            <div title="Seen by Frank Mock"></div>
+          </div>
+          <div class="msg-s-event-listitem__seen-receipts">
+            <img class="msg-s-event-listitem__seen-receipt-photo" alt="Seen by Frank Mock at 9:00 AM." src="data:," />
           </div>
         </li>
-        <li class="msg-s-message-list__event">
-          <div class="msg-s-event-listitem">
+        <li class="msg-s-message-list__event clearfix">
+          <div class="msg-s-event-listitem msg-s-event-listitem--last-in-group">
             <p class="msg-s-event-listitem__body">Sharing the deck I mentioned.</p>
           </div>
         </li>
+        <li class="msg-s-message-list__typing-indicator-container--without-seen-receipt"></li>
       </ul>
     </div>
   </body>

@@ -98,11 +98,13 @@
     return match ? "https://www.linkedin.com/in/" + match[1] + "/" : "";
   }
 
-  // The list preview of our own last message reads "You: <text>".
+  // The list preview of our own last message reads "You: <text>", or
+  // "You sent an attachment" when there is no text to show.
   function stripYouPrefix(snippet) {
     const text = cleanText(snippet);
     const match = /^You:\s*/i.exec(text);
     if (match) return { fromMe: true, text: text.slice(match[0].length) };
+    if (/^You sent\b/i.test(text)) return { fromMe: true, text };
     return { fromMe: false, text };
   }
 
@@ -155,34 +157,47 @@
 
   // ---- Conversation list ----
 
+  // How the extension remembers a conversation before it knows the thread id:
+  // its name, lowercased. Used for the fresh/baseline state and to look up a
+  // thread id learned earlier.
+  function nameKey(name) {
+    return cleanText(name).toLowerCase();
+  }
+
   function isActiveItem(item) {
     return matchesAny(item, "itemActive") || Boolean(queryFirst(item, "itemActive"));
   }
 
-  // Returns { conversations, skipped }. "skipped" counts list items with no
-  // readable thread id (the backend needs one), shown by the diagnostics.
+  // Returns { conversations }. LinkedIn's list items carry no thread link, so
+  // threadId is "" except on the open thread's item (id from the URL);
+  // tracking.rememberThreads fills in ids learned earlier. Each item has a
+  // "key" (its name, plus "#2", "#3" when several items share a name) and
+  // "ambiguous" when its name is not unique in the list.
   function parseConversationList(doc, pathname) {
     const openThreadId = threadIdFromHref(pathname);
     const conversations = [];
     const seenIds = new Set();
-    let skipped = 0;
+    const keyCounts = {};
 
     for (const item of queryAll(doc, "conversationItem")) {
       if (isSponsoredItem(item)) continue;
+      const nameEl = queryFirst(item, "itemName");
+      const name = stripCredentials(nameEl && nameEl.textContent);
+      // LinkedIn keeps a few empty placeholder items at the end of the list.
+      if (!name) continue;
+
       const link = queryFirst(item, "itemThreadLink");
       const href = link ? link.getAttribute("href") || link.getAttribute("data-href") : "";
       let threadId = threadIdFromHref(href);
       const active = isActiveItem(item);
-      // Items without an href can still be identified when they are the open thread.
       if (!threadId && active && openThreadId) threadId = openThreadId;
-      if (!threadId || seenIds.has(threadId)) {
-        if (!threadId) skipped++;
-        continue;
-      }
-      seenIds.add(threadId);
+      if (threadId && seenIds.has(threadId)) continue;
+      if (threadId) seenIds.add(threadId);
 
-      const nameEl = queryFirst(item, "itemName");
-      const name = stripCredentials(nameEl && nameEl.textContent);
+      const base = nameKey(name);
+      keyCounts[base] = (keyCounts[base] || 0) + 1;
+      const key = keyCounts[base] === 1 ? base : base + "#" + keyCounts[base];
+
       const snippetEl = queryFirst(item, "itemSnippet");
       const snippet = cleanText(snippetEl && snippetEl.textContent);
 
@@ -194,7 +209,8 @@
 
       conversations.push({
         threadId,
-        threadUrl: threadUrlFor(threadId),
+        threadUrl: threadId ? threadUrlFor(threadId) : "",
+        key,
         name,
         isGroup: isGroupName(name),
         lastMessage,
@@ -202,7 +218,8 @@
         active,
       });
     }
-    return { conversations, skipped };
+    for (const c of conversations) c.ambiguous = keyCounts[nameKey(c.name)] > 1;
+    return { conversations };
   }
 
   // ---- Open thread ----
@@ -220,7 +237,7 @@
   // A receipt counts for this message if it sits inside the message itself, or
   // in its event wrapper when this is the last message of that wrapper.
   function hasSeenReceipt(item) {
-    if (queryFirst(item, "seenReceipt")) return true;
+    if (matchesAny(item, "seenReceipt") || queryFirst(item, "seenReceipt")) return true;
     const event = closestAny(item.parentElement, "messageEvent");
     if (!event) return false;
     const itemsInEvent = queryAll(event, "messageItem");
@@ -265,6 +282,8 @@
     const out = (list || []).map((item) => ({
       threadId: item.threadId,
       threadUrl: item.threadUrl,
+      key: item.key,
+      ambiguous: item.ambiguous,
       name: item.name,
       profileUrl: "",
       isGroup: item.isGroup,
@@ -282,6 +301,8 @@
       entry = {
         threadId: thread.threadId,
         threadUrl: thread.threadUrl,
+        key: "thread:" + thread.threadId,
+        ambiguous: false,
         name: "",
         profileUrl: "",
         isGroup: false,
@@ -300,8 +321,15 @@
     entry.profileUrl = entry.isGroup ? "" : thread.profileUrl || entry.profileUrl;
     entry.seen = thread.seen;
     if (thread.messages.length) {
-      entry.lastMessage = thread.lastMessage;
       entry.messages = thread.messages;
+      // The text stays the list preview's, so the same message reads the same
+      // whether or not its thread is open (the preview says "You sent an
+      // attachment" where the thread shows the message text). Who sent it
+      // comes from the thread: a message with a subject line previews as the
+      // subject, without the "You:" that marks our own messages.
+      entry.lastMessage = entry.lastMessage
+        ? { fromMe: thread.lastMessage.fromMe, text: entry.lastMessage.text }
+        : thread.lastMessage;
     }
     return out;
   }
@@ -327,6 +355,7 @@
     countSelectorMatches,
     threadIdFromHref,
     threadUrlFor,
+    nameKey,
     profileUrlFromHref,
     stripYouPrefix,
     stripSenderPrefix,
