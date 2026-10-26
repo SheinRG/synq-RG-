@@ -4,86 +4,213 @@
     <meta charset="utf-8" />
     <title>LinkedIn Lead Tracker</title>
     <style>
-      body {
-        width: 360px;
-        margin: 0;
-        padding: 14px 16px 16px;
-        font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: #1f2328;
-        background: #fff;
+      :root {
+        --bg: #f3f2ef;
+        --card: #ffffff;
+        --text: #1d2226;
+        --muted: #5e6670;
+        --border: #e0dfdc;
+        --field: #ffffff;
+        --brand: #0a66c2;
+        --brand-hover: #004182;
+        --brand-soft: #e8f1fb;
+        --on-brand: #ffffff;
+        --ok: #057642;
+        --ok-soft: #e6f4ec;
+        --error: #cc1016;
+        --error-soft: #fdecec;
+        --chip: #eef0f2;
       }
-      h1 { font-size: 15px; margin: 0 0 2px; }
-      .subtitle { color: #59636e; margin: 0 0 12px; }
-      section { border-top: 1px solid #e5e7eb; padding-top: 10px; margin-top: 10px; }
-      label { display: block; font-weight: 600; margin-bottom: 4px; }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1b1f23;
+          --card: #24292e;
+          --text: #e9ebed;
+          --muted: #a3abb4;
+          --border: #383e45;
+          --field: #1b1f23;
+          --brand: #4c9ce6;
+          --brand-hover: #71b2ef;
+          --brand-soft: #1f3348;
+          --on-brand: #0b1622;
+          --ok: #4cc38a;
+          --ok-soft: #1c3428;
+          --error: #f47067;
+          --error-soft: #3d2124;
+          --chip: #30363d;
+        }
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        width: 380px;
+        margin: 0;
+        font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+      }
+      header img { width: 32px; height: 32px; border-radius: 8px; }
+      header .titles { flex: 1; min-width: 0; }
+      h1 { font-size: 15px; margin: 0; font-weight: 650; }
+      .tagline { margin: 0; color: var(--muted); font-size: 12px; }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 600;
+        white-space: nowrap;
+        background: var(--chip);
+        color: var(--muted);
+      }
+      .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      .pill.ok { background: var(--ok-soft); color: var(--ok); }
+      .pill.error { background: var(--error-soft); color: var(--error); }
+
+      main { padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 11.5px;
+        font-weight: 650;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
       input[type="url"] {
         width: 100%;
-        box-sizing: border-box;
-        padding: 6px 8px;
-        border: 1px solid #c8ccd1;
-        border-radius: 6px;
-        font: inherit;
+        padding: 7px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--field);
+        color: var(--text);
+        font: 12px ui-monospace, "Cascadia Mono", Consolas, monospace;
       }
-      .row { display: flex; gap: 8px; margin-top: 8px; }
+      input[type="url"]:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
+
+      .row { display: flex; gap: 8px; margin-top: 10px; }
+      .row button { flex: 1; }
       button {
-        padding: 6px 12px;
-        border: 1px solid #c8ccd1;
-        border-radius: 6px;
-        background: #f6f8fa;
+        padding: 7px 12px;
+        border: 1px solid var(--brand);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--brand);
         font: inherit;
+        font-weight: 600;
         cursor: pointer;
       }
-      button.primary { background: #0a66c2; border-color: #0a66c2; color: #fff; }
-      button:disabled { opacity: 0.6; cursor: default; }
-      .status { margin-top: 6px; min-height: 1.45em; }
-      .ok { color: #1a7f37; }
-      .error { color: #d1242f; }
-      .muted { color: #59636e; }
-      #diagnostics { margin-top: 8px; }
-      #diagnostics table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      #diagnostics td { padding: 2px 4px; border-bottom: 1px solid #f0f1f3; vertical-align: top; }
-      #diagnostics td.count { text-align: right; white-space: nowrap; }
-      #diagnostics .zero { color: #d1242f; font-weight: 600; }
-      #diagnostics ul { margin: 4px 0; padding-left: 18px; }
+      button:hover { background: var(--brand-soft); }
+      button.primary { background: var(--brand); color: var(--on-brand); }
+      button.primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+      button:disabled { opacity: 0.55; cursor: default; }
+
+      .status { margin-top: 8px; font-size: 12px; }
+      .status:empty { display: none; }
+      .ok { color: var(--ok); }
+      .error { color: var(--error); }
+      .muted { color: var(--muted); }
+
+      /* Diagnostics */
+      #diagnostics:empty { display: none; }
+      #diagnostics { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .stat { background: var(--bg); border-radius: 8px; padding: 8px; text-align: center; }
+      .stat b { display: block; font-size: 18px; line-height: 1.2; }
+      .stat span { font-size: 11px; color: var(--muted); }
+      .note { font-size: 12px; color: var(--muted); }
+      .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+      .chip { background: var(--chip); border-radius: 999px; padding: 1px 8px; font-size: 11.5px; }
+      .thread { border-left: 3px solid var(--brand); padding: 2px 0 2px 10px; font-size: 12px; }
+      .thread b { display: block; font-size: 13px; }
+      .thread a { color: var(--brand); word-break: break-all; }
+
+      details { border-top: 1px solid var(--border); padding-top: 8px; }
+      summary { cursor: pointer; font-weight: 600; font-size: 12px; display: flex; gap: 6px; align-items: center; list-style: none; }
+      summary::-webkit-details-marker { display: none; }
+      summary::before { content: "\25B8"; color: var(--muted); font-size: 10px; width: 10px; }
+      details[open] > summary::before { content: "\25BE"; }
+      summary .pill { margin-left: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 6px; }
+      td { padding: 3px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      td.sel { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; word-break: break-all; }
+      td.count { text-align: right; white-space: nowrap; font-weight: 600; }
+      td.count.zero { color: var(--error); }
+      td.count.optional { color: var(--muted); font-weight: 400; }
+      ul.convos { list-style: none; margin: 6px 0 0; padding: 0; }
+      ul.convos li { display: flex; gap: 6px; align-items: baseline; padding: 3px 0; font-size: 12px; border-bottom: 1px solid var(--border); }
+      ul.convos li:last-child { border-bottom: 0; }
+      .who { flex: none; font-size: 10.5px; font-weight: 650; border-radius: 4px; padding: 0 5px; background: var(--chip); color: var(--muted); }
+      .who.me { background: var(--brand-soft); color: var(--brand); }
+      .name { font-weight: 600; flex: none; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .text { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       pre {
         max-height: 180px;
         overflow: auto;
-        background: #f6f8fa;
-        padding: 6px;
-        border-radius: 6px;
-        font-size: 11px;
+        background: var(--bg);
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 10.5px;
         white-space: pre-wrap;
         word-break: break-all;
       }
+
+      footer { padding: 0 16px 14px; font-size: 11.5px; }
     </style>
   </head>
   <body>
-    <h1>LinkedIn Lead Tracker</h1>
-    <p class="subtitle">Reads your LinkedIn Messages while you use them. It never sends or clicks anything.</p>
-
-    <section>
-      <label for="scriptUrl">Apps Script web app URL</label>
-      <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" spellcheck="false" />
-      <div class="row">
-        <button id="save" class="primary">Save</button>
-        <button id="test">Test connection</button>
+    <header>
+      <img src="icons/icon-48.png" alt="" />
+      <div class="titles">
+        <h1>Lead Tracker</h1>
+        <p class="tagline">Reads LinkedIn Messages. Never sends or clicks.</p>
       </div>
-      <div id="connectionStatus" class="status"></div>
-    </section>
+      <span id="statusPill" class="pill">Not synced</span>
+    </header>
 
-    <section>
-      <div class="row">
-        <button id="syncNow">Sync now</button>
-        <button id="diagnose">Check this page</button>
-      </div>
-      <div id="syncStatus" class="status"></div>
-      <div id="diagnostics"></div>
-    </section>
+    <main>
+      <section class="card">
+        <h2>Google Sheet</h2>
+        <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" spellcheck="false" aria-label="Apps Script web app URL" />
+        <div class="row">
+          <button id="save" class="primary">Save</button>
+          <button id="test">Test connection</button>
+        </div>
+        <div id="connectionStatus" class="status"></div>
+      </section>
 
-    <section>
-      <label>Last sync</label>
+      <section class="card">
+        <h2>This page</h2>
+        <div class="row" style="margin-top: 0">
+          <button id="syncNow" class="primary">Sync now</button>
+          <button id="diagnose">Check this page</button>
+        </div>
+        <div id="syncStatus" class="status"></div>
+        <div id="diagnostics"></div>
+      </section>
+    </main>
+
+    <footer>
       <div id="lastSync" class="muted">Not synced yet.</div>
-    </section>
+    </footer>
 
     <script src="shared.js"></script>
     <script src="popup.js"></script>

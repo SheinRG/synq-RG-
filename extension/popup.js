@@ -121,52 +121,83 @@ function countsText(counts) {
   return " Updated " + counts.updated + ", added " + counts.added + ", unchanged " + counts.unchanged + ", ignored " + counts.ignored + ".";
 }
 
+// Selectors that legitimately match nothing on many pages: no thread links on
+// today's LinkedIn, no unread or sponsored items, a thread with no receipt or
+// no message from the other person. Zero is shown in grey for these.
+const OPTIONAL_SELECTORS = new Set(["itemThreadLink", "itemUnread", "itemSponsoredLabel", "messageFromOther", "seenReceipt"]);
+
+function stat(value, label) {
+  const box = el("div", "stat");
+  box.append(el("b", "", String(value)), el("span", "", label));
+  return box;
+}
+
 function renderDiagnostics(report) {
   const box = diagnosticsBox;
   const waiting = report.waitingNames || [];
-  box.append(el("div", "", "Conversations read: " + report.listCount + ", tracked: " + (report.listCount - waiting.length)));
+
+  const stats = el("div", "stats");
+  stats.append(stat(report.listCount, "read"), stat(report.listCount - waiting.length, "tracked"), stat(waiting.length, "not opened yet"));
+  box.append(stats);
+
   if (waiting.length) {
-    box.append(
-      el(
-        "div",
-        "muted",
-        "Not tracked until opened once (LinkedIn's list has no thread links): " +
-          waiting.slice(0, 6).join(", ") + (waiting.length > 6 ? " and " + (waiting.length - 6) + " more" : "")
-      )
-    );
+    const note = el("div", "note", "Open these once so the tracker learns their thread:");
+    const chips = el("div", "chips");
+    for (const name of waiting) chips.append(el("span", "chip", name));
+    note.append(chips);
+    box.append(note);
   }
 
   const thread = report.openThread;
-  box.append(
-    el(
-      "div",
-      "",
-      thread
-        ? "Open thread: " + (thread.name || "(no name found)") + ", " + thread.messageCount + " message(s), last from " +
-            (thread.lastFromMe === null ? "?" : thread.lastFromMe ? "you" : "them") + ", seen: " + (thread.seen ? "yes" : "no") +
-            ", profile: " + (thread.profileUrl || "not found")
-        : "Open thread: none"
-    )
-  );
+  if (thread) {
+    const card = el("div", "thread");
+    card.append(el("b", "", thread.name || "(no name found)"));
+    const from = thread.lastFromMe === null ? "?" : thread.lastFromMe ? "you" : "them";
+    card.append(el("div", "muted", thread.messageCount + " message(s), last from " + from + (thread.seen ? ", seen" : ", not seen")));
+    if (thread.profileUrl) {
+      const link = el("a", "", thread.profileUrl.replace("https://www.", ""));
+      link.href = thread.profileUrl;
+      link.target = "_blank";
+      card.append(link);
+    }
+    box.append(card);
+  } else {
+    box.append(el("div", "note", "No thread open. Open a conversation to see its details."));
+  }
 
-  // One row per selector key: the first fallback that matched, or 0 in red.
+  const convos = el("details");
+  convos.append(el("summary", "", "Parsed conversations"));
+  const list = el("ul", "convos");
+  for (const c of report.conversations.slice(0, 12)) {
+    const row = el("li");
+    const fromMe = c.lastMessage && c.lastMessage.fromMe;
+    row.append(el("span", "who" + (fromMe ? " me" : ""), c.lastMessage ? (fromMe ? "You" : "Them") : "?"));
+    row.append(el("span", "name", (c.name || "(no name)") + (c.isGroup ? " (group)" : "")));
+    row.append(el("span", "text", c.lastMessage ? c.lastMessage.text : "(no preview)"));
+    list.append(row);
+  }
+  convos.append(list);
+  box.append(convos);
+
+  // One row per selector key: the first fallback that matched, or 0.
   const table = el("table");
+  let missing = 0;
   for (const [key, entries] of Object.entries(report.selectorCounts)) {
     const hit = entries.find((e) => e.count > 0);
+    const optional = OPTIONAL_SELECTORS.has(key);
+    if (!hit && !optional) missing++;
     const row = el("tr");
     row.append(el("td", "", key));
-    row.append(el("td", "muted", hit ? hit.selector : "no selector matched"));
-    row.append(el("td", "count" + (hit ? "" : " zero"), String(hit ? hit.count : 0)));
+    row.append(el("td", "sel", hit ? hit.selector : optional ? "none on this page" : "no selector matched"));
+    row.append(el("td", "count" + (hit ? "" : optional ? " optional" : " zero"), String(hit ? hit.count : 0)));
     table.append(row);
   }
-  box.append(el("label", "", "Selectors"), table);
-
-  const list = el("ul");
-  for (const c of report.conversations.slice(0, 8)) {
-    const last = c.lastMessage ? (c.lastMessage.fromMe ? "You: " : "Them: ") + c.lastMessage.text.slice(0, 50) : "(no preview)";
-    list.append(el("li", "", (c.name || "(no name)") + (c.isGroup ? " [group]" : "") + " - " + last));
-  }
-  box.append(el("label", "", "Parsed conversations"), list);
+  const selectors = el("details");
+  const summary = el("summary", "", "Selector health");
+  summary.append(el("span", "pill " + (missing ? "error" : "ok"), missing ? missing + " missing" : "All good"));
+  selectors.append(summary, table);
+  if (missing) selectors.open = true;
+  box.append(selectors);
 
   const raw = el("details");
   raw.append(el("summary", "", "Raw report"), el("pre", "", JSON.stringify(report, null, 2)));
@@ -174,18 +205,25 @@ function renderDiagnostics(report) {
 }
 
 function renderLastSync(lastSync) {
+  const pill = document.getElementById("statusPill");
   if (!lastSync) {
     lastSyncBox.textContent = "Not synced yet.";
     lastSyncBox.className = "muted";
+    pill.textContent = "Not synced";
+    pill.className = "pill";
     return;
   }
   const when = new Date(lastSync.at).toLocaleString();
   if (lastSync.ok) {
-    lastSyncBox.textContent = when + ": OK, " + lastSync.sent + " conversation(s) sent." + countsText(lastSync.counts);
-    lastSyncBox.className = "ok";
+    lastSyncBox.textContent = "Last sync " + when + ": " + lastSync.sent + " conversation(s) sent." + countsText(lastSync.counts);
+    lastSyncBox.className = "muted";
+    pill.textContent = "Synced";
+    pill.className = "pill ok";
   } else {
-    lastSyncBox.textContent = when + ": failed. " + lastSync.error + " Unsent changes will be retried on the next sync.";
+    lastSyncBox.textContent = "Last sync " + when + " failed: " + lastSync.error + " Unsent changes are retried on the next sync.";
     lastSyncBox.className = "error";
+    pill.textContent = "Sync failed";
+    pill.className = "pill error";
   }
 }
 
